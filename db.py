@@ -37,8 +37,36 @@ CREATE TABLE IF NOT EXISTS product (
     sizes TEXT,
     color_hex TEXT DEFAULT '#ee4d2d',
     image_path TEXT,
+    gallery_images TEXT,
     active INTEGER DEFAULT 1,
+    brand TEXT DEFAULT 'No brand',
+    pattern TEXT,
+    season TEXT,
+    sleeve_length TEXT,
+    garment_length TEXT,
+    fit TEXT,
+    weight_grams INTEGER DEFAULT 100,
+    package_length_cm INTEGER DEFAULT 1,
+    package_width_cm INTEGER DEFAULT 1,
+    package_height_cm INTEGER DEFAULT 1,
+    ship_hoa_toc_enabled INTEGER DEFAULT 0,
+    ship_hoa_toc_fee INTEGER DEFAULT 22000,
+    ship_nhanh_enabled INTEGER DEFAULT 1,
+    ship_nhanh_fee INTEGER DEFAULT 16500,
+    is_preorder INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS product_variant (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL REFERENCES product(id),
+    color TEXT NOT NULL,
+    size TEXT NOT NULL,
+    price INTEGER NOT NULL,
+    stock INTEGER DEFAULT 0,
+    sku TEXT,
+    gtin TEXT,
+    UNIQUE(product_id, color, size)
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -69,6 +97,51 @@ def init_db():
     with get_conn() as conn:
         conn.executescript(SCHEMA)
         conn.commit()
+        _migrate(conn)
+
+
+def _migrate(conn):
+    """Thêm cột mới cho DB cũ (an toàn khi chạy lại nhiều lần)."""
+    cols = {row["name"] for row in conn.execute("PRAGMA table_info(product)").fetchall()}
+    new_columns = [
+        ("gallery_images", "TEXT"),
+        ("brand", "TEXT DEFAULT 'No brand'"),
+        ("pattern", "TEXT"),
+        ("season", "TEXT"),
+        ("sleeve_length", "TEXT"),
+        ("garment_length", "TEXT"),
+        ("fit", "TEXT"),
+        ("weight_grams", "INTEGER DEFAULT 100"),
+        ("package_length_cm", "INTEGER DEFAULT 1"),
+        ("package_width_cm", "INTEGER DEFAULT 1"),
+        ("package_height_cm", "INTEGER DEFAULT 1"),
+        ("ship_hoa_toc_enabled", "INTEGER DEFAULT 0"),
+        ("ship_hoa_toc_fee", "INTEGER DEFAULT 22000"),
+        ("ship_nhanh_enabled", "INTEGER DEFAULT 1"),
+        ("ship_nhanh_fee", "INTEGER DEFAULT 16500"),
+        ("is_preorder", "INTEGER DEFAULT 0"),
+    ]
+    changed = False
+    for col_name, col_def in new_columns:
+        if col_name not in cols:
+            conn.execute(f"ALTER TABLE product ADD COLUMN {col_name} {col_def}")
+            changed = True
+    if changed:
+        conn.commit()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS product_variant (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL REFERENCES product(id),
+            color TEXT NOT NULL,
+            size TEXT NOT NULL,
+            price INTEGER NOT NULL,
+            stock INTEGER DEFAULT 0,
+            sku TEXT,
+            gtin TEXT,
+            UNIQUE(product_id, color, size)
+        )
+    """)
+    conn.commit()
 
 
 @contextmanager

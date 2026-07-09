@@ -12,7 +12,9 @@ Chạy thử ở máy bạn:
     # mở http://127.0.0.1:5000
 """
 
+import json
 import os
+import uuid
 from functools import wraps
 
 from flask import (
@@ -24,6 +26,26 @@ from seed_data import CATEGORIES, PRODUCTS, COMMON_SPECS, DEFAULT_COLORS, DEFAUL
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "doi-chuoi-nay-truoc-khi-deploy-that")
+app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024  # tối đa 15MB mỗi lần lưu sản phẩm (ảnh)
+
+# ---------- Cấu hình upload ảnh sản phẩm ----------
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+ALLOWED_IMAGE_EXT = {"png", "jpg", "jpeg", "webp", "gif"}
+
+
+def _allowed_image(filename):
+    return bool(filename) and "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_IMAGE_EXT
+
+
+def _save_uploaded_file(file_storage):
+    """Lưu 1 file ảnh upload, trả về đường dẫn tương đối trong static/ (vd 'uploads/xxxx.jpg') hoặc None."""
+    if not file_storage or not file_storage.filename or not _allowed_image(file_storage.filename):
+        return None
+    ext = file_storage.filename.rsplit(".", 1)[1].lower()
+    fname = f"{uuid.uuid4().hex}.{ext}"
+    file_storage.save(os.path.join(UPLOAD_DIR, fname))
+    return f"uploads/{fname}"
 
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "veqistu_admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Veqistu@2026")
@@ -77,6 +99,19 @@ def admin_required(view):
     return wrapped
 
 
+def get_variants(product_id):
+    return db.query(
+        "SELECT * FROM product_variant WHERE product_id=? ORDER BY color, size", (product_id,)
+    )
+
+
+def find_variant(product_id, color, size):
+    return db.query(
+        "SELECT * FROM product_variant WHERE product_id=? AND color=? AND size=?",
+        (product_id, color, size), one=True,
+    )
+
+
 def get_cart():
     return session.setdefault("cart", [])  # list of {product_id, name, price, variant, qty}
 
@@ -104,7 +139,9 @@ def index():
     category_id = request.args.get("category", type=int)
     sort = request.args.get("sort", "pho_bien")
 
-    sql = "SELECT * FROM product WHERE active=1"
+    sql = """SELECT p.*,
+                (SELECT COUNT(DISTINCT price) FROM product_variant WHERE product_id=p.id) AS variant_price_count
+             FROM product p WHERE active=1"""
     params = []
     if category_id:
         sql += " AND category_id=?"
@@ -138,7 +175,10 @@ def product_detail(product_id):
         "SELECT * FROM product WHERE category_id=? AND id<>? AND active=1 LIMIT 6",
         (product["category_id"], product_id),
     )
-    return render_template("product_detail.html", p=product, related=related)
+    variants = get_variants(product_id)
+    variants_json = json.dumps([dict(v) for v in variants])
+    return render_template("product_detail.html", p=product, related=related,
+                            variants=variants, variants_json=variants_json)
 
 
 @app.route("/cart/add", methods=["POST"])
@@ -151,16 +191,23 @@ def cart_add():
     if not product:
         return "Không tìm thấy sản phẩm", 404
 
+    # Nếu sản phẩm có bảng phân loại (màu/size riêng giá + tồn kho) thì dùng đúng
+    # giá/tồn kho của phân loại đó; không thì dùng giá/tồn kho chung của sản phẩm
+    # (tương thích ngược với sản phẩm cũ chưa khai báo phân loại chi tiết).
+    variant_row = find_variant(product_id, color, size) if (color or size) else None
+    unit_price = variant_row["price"] if variant_row else product["price"]
+    available_stock = variant_row["stock"] if variant_row else product["stock"]
+
     cart = get_cart()
     variant = f"{color} / {size}".strip(" /")
     for item in cart:
         if item["product_id"] == product_id and item["variant"] == variant:
-            item["qty"] += qty
+            item["qty"] = min(item["qty"] + qty, max(available_stock, 1))
             break
     else:
         cart.append({
-            "product_id": product_id, "name": product["name"], "price": product["price"],
-            "variant": variant, "qty": qty, "color_hex": product["color_hex"],
+            "product_id": product_id, "name": product["name"], "price": unit_price,
+            "variant": variant, "qty": min(qty, max(available_stock, 1)), "color_hex": product["color_hex"],
         })
     session.modified = True
 
@@ -271,9 +318,9 @@ def admin_dashboard():
 def admin_product_new():
     categories = db.query("SELECT * FROM category ORDER BY id")
     if request.method == "POST":
-        _save_product(None, request.form, categories)
+        new_id = _save_product(None, request.form, request.files, categories)
         return redirect(url_for("admin_dashboard"))
-    return render_template("admin/product_form.html", p=None, categories=categories)
+    return render_template("admin/product_form.html", p=None, categories=categories, variants_json="[]")
 
 
 @app.route("/admin/san-pham/<int:product_id>/sua", methods=["GET", "POST"])
@@ -282,35 +329,117 @@ def admin_product_edit(product_id):
     categories = db.query("SELECT * FROM category ORDER BY id")
     p = db.query("SELECT * FROM product WHERE id=?", (product_id,), one=True)
     if request.method == "POST":
-        _save_product(product_id, request.form, categories)
+        _save_product(product_id, request.form, request.files, categories)
         return redirect(url_for("admin_dashboard"))
-    return render_template("admin/product_form.html", p=p, categories=categories)
+    variants = get_variants(product_id)
+    variants_json = json.dumps([dict(v) for v in variants])
+    return render_template("admin/product_form.html", p=p, categories=categories, variants_json=variants_json)
 
 
-def _save_product(product_id, form, categories):
+def _save_product(product_id, form, files, categories):
     category_id = int(form["category_id"])
+
+    # Ảnh chính: nếu có upload ảnh mới thì dùng ảnh mới, không thì giữ ảnh cũ (khi sửa)
+    new_image = _save_uploaded_file(files.get("image"))
+    if new_image:
+        image_path = new_image
+    elif product_id:
+        existing = db.query("SELECT image_path FROM product WHERE id=?", (product_id,), one=True)
+        image_path = existing["image_path"] if existing else None
+    else:
+        image_path = None
+
+    # Ảnh thêm cho phần mô tả: nếu có chọn ảnh mới thì THAY TOÀN BỘ ảnh cũ, không thì giữ nguyên
+    new_gallery_files = [f for f in files.getlist("gallery_images") if f and f.filename]
+    if new_gallery_files:
+        saved = [p for p in (_save_uploaded_file(f) for f in new_gallery_files) if p]
+        gallery_images = ",".join(saved)
+    elif product_id:
+        existing = db.query("SELECT gallery_images FROM product WHERE id=?", (product_id,), one=True)
+        gallery_images = existing["gallery_images"] if existing else ""
+    else:
+        gallery_images = ""
+
+    # ----- Bảng phân loại hàng (Màu sắc x Size) -----
+    try:
+        raw_variants = json.loads(form.get("variants_json", "[]") or "[]")
+    except (ValueError, TypeError):
+        raw_variants = []
+    parsed_variants = []
+    for v in raw_variants:
+        color = str(v.get("color", "")).strip()
+        size = str(v.get("size", "")).strip()
+        price_val = v.get("price")
+        if not color or not size or price_val in (None, ""):
+            continue
+        try:
+            v_price = int(price_val)
+            v_stock = int(v.get("stock") or 0)
+        except (ValueError, TypeError):
+            continue
+        parsed_variants.append({
+            "color": color, "size": size, "price": v_price, "stock": v_stock,
+            "sku": str(v.get("sku", "")).strip(), "gtin": str(v.get("gtin", "")).strip(),
+        })
+
+    # Nếu có bảng phân loại thì giá/tồn kho hiển thị của sản phẩm = giá thấp nhất / tổng tồn kho
+    if parsed_variants:
+        base_price = min(v["price"] for v in parsed_variants)
+        base_stock = sum(v["stock"] for v in parsed_variants)
+    else:
+        base_price = int(form["price"])
+        base_stock = int(form.get("stock", 100))
+
     fields = (
-        form["name"].strip(), category_id, int(form["price"]),
+        form["name"].strip(), category_id, base_price,
         int(form["original_price"]) if form.get("original_price") else None,
         form.get("material", ""), form.get("style", ""), form.get("origin", "Việt Nam"),
         form.get("collar", ""), form.get("colors", DEFAULT_COLORS), form.get("sizes", DEFAULT_SIZES),
-        int(form.get("stock", 100)), form.get("description", ""), form.get("color_hex", "#ee4d2d"),
-        1 if form.get("active") else 0,
+        base_stock, form.get("description", ""), form.get("color_hex", "#ee4d2d"),
+        image_path, gallery_images, 1 if form.get("active") else 0,
+        form.get("brand", "No brand"), form.get("pattern", ""), form.get("season", ""),
+        form.get("sleeve_length", ""), form.get("garment_length", ""), form.get("fit", ""),
+        int(form.get("weight_grams") or 100),
+        int(form.get("package_length_cm") or 1), int(form.get("package_width_cm") or 1),
+        int(form.get("package_height_cm") or 1),
+        1 if form.get("ship_hoa_toc_enabled") else 0, int(form.get("ship_hoa_toc_fee") or 22000),
+        1 if form.get("ship_nhanh_enabled") else 0, int(form.get("ship_nhanh_fee") or 16500),
+        1 if form.get("is_preorder") else 0,
     )
     if product_id:
         db.execute(
             """UPDATE product SET name=?, category_id=?, price=?, original_price=?, material=?,
-               style=?, origin=?, collar=?, colors=?, sizes=?, stock=?, description=?, color_hex=?, active=?
+               style=?, origin=?, collar=?, colors=?, sizes=?, stock=?, description=?, color_hex=?,
+               image_path=?, gallery_images=?, active=?,
+               brand=?, pattern=?, season=?, sleeve_length=?, garment_length=?, fit=?,
+               weight_grams=?, package_length_cm=?, package_width_cm=?, package_height_cm=?,
+               ship_hoa_toc_enabled=?, ship_hoa_toc_fee=?, ship_nhanh_enabled=?, ship_nhanh_fee=?,
+               is_preorder=?
                WHERE id=?""",
             fields + (product_id,),
         )
+        new_product_id = product_id
     else:
-        db.execute(
+        new_product_id = db.execute(
             """INSERT INTO product (name, category_id, price, original_price, material, style, origin,
-               collar, colors, sizes, stock, description, color_hex, active, rating, sold_count)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,5.0,0)""",
+               collar, colors, sizes, stock, description, color_hex, image_path, gallery_images, active,
+               brand, pattern, season, sleeve_length, garment_length, fit,
+               weight_grams, package_length_cm, package_width_cm, package_height_cm,
+               ship_hoa_toc_enabled, ship_hoa_toc_fee, ship_nhanh_enabled, ship_nhanh_fee, is_preorder,
+               rating, sold_count)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,5.0,0)""",
             fields,
         )
+
+    # Ghi lại toàn bộ bảng phân loại (xoá cũ, thêm lại theo dữ liệu mới nhất)
+    db.execute("DELETE FROM product_variant WHERE product_id=?", (new_product_id,))
+    for v in parsed_variants:
+        db.execute(
+            """INSERT INTO product_variant (product_id, color, size, price, stock, sku, gtin)
+               VALUES (?,?,?,?,?,?,?)""",
+            (new_product_id, v["color"], v["size"], v["price"], v["stock"], v["sku"], v["gtin"]),
+        )
+    return new_product_id
 
 
 @app.route("/admin/san-pham/<int:product_id>/xoa")
