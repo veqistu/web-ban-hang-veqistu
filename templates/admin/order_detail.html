@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Đơn hàng DH{{ order['id'] }} | {{ shop_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="admin-header">
+    <strong>{{ shop_name }} — Quản trị</strong>
+    <nav>
+      <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
+      <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
+      <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
+    </nav>
+  </header>
+  <main class="admin-main">
+    <h1>Đơn hàng DH{{ order['id'] }}</h1>
+    <p><strong>Khách hàng:</strong> {{ order['customer_name'] }} — {{ order['phone'] }}</p>
+    <p><strong>Địa chỉ:</strong> {{ order['address'] }}</p>
+    {% if order['note'] %}<p><strong>Ghi chú:</strong> {{ order['note'] }}</p>{% endif %}
+    <p><strong>Thanh toán:</strong> {{ 'Chuyển khoản QR' if order['payment_method']=='bank_transfer' else 'COD' }}</p>
+    <p><strong>Tổng tiền:</strong> {{ "{:,.0f}".format(order['total_amount']) }}đ</p>
+
+    <form method="post" action="{{ url_for('admin_order_status', order_id=order['id']) }}" class="status-form">
+      <label>Trạng thái đơn hàng</label>
+      <select name="status">
+        {% for s in ['Chờ xác nhận', 'Đã xác nhận', 'Đang giao', 'Hoàn thành', 'Đã huỷ'] %}
+        <option value="{{ s }}" {{ 'selected' if order['status']==s }}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-primary">Cập nhật</button>
+    </form>
+
+    <h3>Sản phẩm trong đơn</h3>
+    <table class="admin-table">
+      <tr><th>Sản phẩm</th><th>Phân loại</th><th>Đơn giá</th><th>SL</th><th>Thành tiền</th></tr>
+      {% for item in items %}
+      <tr>
+        <td>{{ item['product_name'] }}</td>
+        <td>{{ item['variant'] }}</td>
+        <td>{{ "{:,.0f}".format(item['unit_price']) }}đ</td>
+        <td>{{ item['quantity'] }}</td>
+        <td>{{ "{:,.0f}".format(item['unit_price'] * item['quantity']) }}đ</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </main>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Đơn hàng | {{ shop_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="admin-header">
+    <strong>{{ shop_name }} — Quản trị</strong>
+    <nav>
+      <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
+      <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
+      <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
+    </nav>
+  </header>
+  <main class="admin-main">
+    <h1>Đơn hàng ({{ orders|length }})</h1>
+    <table class="admin-table">
+      <tr><th>Mã đơn</th><th>Khách hàng</th><th>SĐT</th><th>Thanh toán</th><th>Tổng tiền</th><th>Trạng thái</th><th>Ngày đặt</th></tr>
+      {% for o in orders %}
+      <tr>
+        <td><a href="{{ url_for('admin_order_detail', order_id=o['id']) }}">DH{{ o['id'] }}</a></td>
+        <td>{{ o['customer_name'] }}</td>
+        <td>{{ o['phone'] }}</td>
+        <td>{{ 'Chuyển khoản' if o['payment_method']=='bank_transfer' else 'COD' }}</td>
+        <td>{{ "{:,.0f}".format(o['total_amount']) }}đ</td>
+        <td>{{ o['status'] }}</td>
+        <td>{{ o['created_at'] }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7">Chưa có đơn hàng nào.</td></tr>
+      {% endfor %}
+    </table>
+  </main>
+</body>
+</html>

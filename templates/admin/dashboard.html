@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Quản trị sản phẩm | {{ shop_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="admin-header">
+    <strong>{{ shop_name }} — Quản trị</strong>
+    <nav>
+      <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
+      <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
+      <a href="{{ url_for('index') }}" target="_blank">Xem trang web</a>
+      <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
+    </nav>
+  </header>
+  <main class="admin-main">
+    <div class="admin-toolbar">
+      <h1>Sản phẩm ({{ products|length }})</h1>
+      <a href="{{ url_for('admin_product_new') }}" class="btn btn-primary">+ Thêm sản phẩm</a>
+    </div>
+    <table class="admin-table">
+      <tr><th></th><th>Tên</th><th>Danh mục</th><th>Giá</th><th>Tồn kho</th><th>Trạng thái</th><th></th></tr>
+      {% for p in products %}
+      <tr>
+        <td><span class="mini-thumb" style="background:{{ p['color_hex'] }}"></span></td>
+        <td>{{ p['name'] }}</td>
+        <td>{{ p['category_name'] }}</td>
+        <td>{{ "{:,.0f}".format(p['price']) }}đ</td>
+        <td>{{ p['stock'] }}</td>
+        <td>{{ 'Đang bán' if p['active'] else 'Đã ẩn' }}</td>
+        <td>
+          <a href="{{ url_for('admin_product_edit', product_id=p['id']) }}">Sửa</a>
+          · <a href="{{ url_for('admin_product_delete', product_id=p['id']) }}" onclick="return confirm('Ẩn sản phẩm này khỏi web?')">Ẩn</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </main>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>{{ 'Sửa' if p else 'Thêm' }} sản phẩm | {{ shop_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="admin-header">
+    <strong>{{ shop_name }} — Quản trị</strong>
+    <nav>
+      <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
+      <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
+      <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
+    </nav>
+  </header>
+  <main class="admin-main">
+    <h1>{{ 'Sửa' if p else 'Thêm' }} sản phẩm</h1>
+    <form method="post" class="admin-form">
+      <label>Tên sản phẩm *</label>
+      <input type="text" name="name" value="{{ p['name'] if p else '' }}" required>
+
+      <label>Danh mục *</label>
+      <select name="category_id" required>
+        {% for c in categories %}
+        <option value="{{ c['id'] }}" {{ 'selected' if p and p['category_id']==c['id'] }}>{{ c['name'] }}</option>
+        {% endfor %}
+      </select>
+
+      <div class="form-row">
+        <div>
+          <label>Giá bán (đ) *</label>
+          <input type="number" name="price" value="{{ p['price'] if p else '' }}" required>
+        </div>
+        <div>
+          <label>Giá gốc (đ, để trống nếu không giảm giá)</label>
+          <input type="number" name="original_price" value="{{ p['original_price'] if p and p['original_price'] else '' }}">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Chất liệu</label>
+          <input type="text" name="material" value="{{ p['material'] if p else 'Cotton' }}">
+        </div>
+        <div>
+          <label>Phong cách</label>
+          <input type="text" name="style" value="{{ p['style'] if p else 'Thể thao' }}">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Xuất xứ</label>
+          <input type="text" name="origin" value="{{ p['origin'] if p else 'Việt Nam' }}">
+        </div>
+        <div>
+          <label>Cổ áo</label>
+          <input type="text" name="collar" value="{{ p['collar'] if p else 'Cổ tròn' }}">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Màu sắc (cách nhau bằng dấu phẩy)</label>
+          <input type="text" name="colors" value="{{ p['colors'] if p else 'Đen,Trắng,Xám' }}">
+        </div>
+        <div>
+          <label>Size (cách nhau bằng dấu phẩy)</label>
+          <input type="text" name="sizes" value="{{ p['sizes'] if p else 'M,L,XL' }}">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Tồn kho</label>
+          <input type="number" name="stock" value="{{ p['stock'] if p else 100 }}">
+        </div>
+        <div>
+          <label>Màu placeholder ảnh (mã hex)</label>
+          <input type="text" name="color_hex" value="{{ p['color_hex'] if p else '#ee4d2d' }}">
+        </div>
+      </div>
+
+      <label>Mô tả sản phẩm</label>
+      <textarea name="description" rows="5">{{ p['description'] if p else '' }}</textarea>
+
+      <label><input type="checkbox" name="active" {{ 'checked' if not p or p['active'] }}> Đang bán (hiện trên web)</label>
+
+      <button type="submit" class="btn btn-primary">Lưu sản phẩm</button>
+    </form>
+  </main>
+</body>
+</html>
