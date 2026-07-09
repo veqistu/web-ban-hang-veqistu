@@ -3,6 +3,8 @@
 {% block content %}
 <div class="breadcrumb"><a href="{{ url_for('index') }}">{{ shop_name }}</a> / Sản phẩm</div>
 
+<div class="product-page-layout">
+<div class="product-page-main">
 <div class="product-detail">
   <div class="gallery">
     <div class="gallery-main" id="gallery-main" style="background:{{ p['color_hex'] }}">
@@ -63,13 +65,49 @@
       <span class="sold">Đã bán {{ p['sold_count'] }}</span>
     </div>
 
+    {% if flash_sale and flash_sale_item %}
+    <div class="flash-sale-box">
+      <div>
+        <span class="fls-label">⚡ FLASH SALE</span>
+        <div class="flash-sale-progress"><div class="flash-sale-progress-fill" style="width:{{ ((flash_sale_item['sold_in_sale'] / flash_sale_item['stock_limit'] * 100) if flash_sale_item['stock_limit'] else 0) | round | int }}%;"></div></div>
+        <span class="review-date">Đã bán {{ flash_sale_item['sold_in_sale'] }}/{{ flash_sale_item['stock_limit'] }} suất</span>
+      </div>
+      <span class="flash-sale-countdown" id="fls-countdown" data-end="{{ flash_sale['end_at'] }}">Kết thúc: {{ flash_sale['end_at'] }}</span>
+    </div>
+    {% endif %}
+
     <div class="price-box" id="price-box">
-      <span class="price-now" id="price-now">{{ "{:,.0f}".format(p['price']) }}đ</span>
-      {% if p['original_price'] %}
+      <span class="price-now" id="price-now">{{ "{:,.0f}".format(display_price) }}đ</span>
+      {% if flash_sale_item %}
+        <span class="price-old" id="price-old">{{ "{:,.0f}".format(p['price']) }}đ</span>
+      {% elif p['original_price'] %}
         <span class="price-old" id="price-old">{{ "{:,.0f}".format(p['original_price']) }}đ</span>
         <span class="discount-badge" id="discount-badge">-{{ ((1 - p['price']/p['original_price']) * 100) | round | int }}%</span>
       {% endif %}
     </div>
+
+    {% if vouchers %}
+    <div class="voucher-badge-row">
+      {% for v in vouchers %}
+      <span class="voucher-badge">🎫 {{ v['code'] }} — Giảm {{ v['discount_value'] }}{{ '%' if v['discount_type'] == 'percent' else 'đ' }}{% if v['min_order_value'] %} (đơn từ {{ "{:,.0f}".format(v['min_order_value']) }}đ){% endif %}</span>
+      {% endfor %}
+    </div>
+    {% if best_voucher %}
+    <div class="price-after-voucher-row">
+      <span>🎫 Giá Sau Voucher:</span>
+      <strong>{{ "{:,.0f}".format(price_after_voucher) }}đ</strong>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if combos %}
+    <div class="combo-box">
+      <h4>🛍️ Combo Khuyến Mãi</h4>
+      {% for c in combos %}
+      <p>Mua từ {{ c['min_quantity'] }} sản phẩm — Giảm ngay {{ "{:,.0f}".format(c['discount_amount']) }}đ</p>
+      {% endfor %}
+    </div>
+    {% endif %}
 
     <form method="post" action="{{ url_for('cart_add') }}" class="variant-form" id="variant-form">
       <input type="hidden" name="product_id" value="{{ p['id'] }}">
@@ -106,7 +144,11 @@
 
       <div class="action-buttons">
         <button type="submit" class="btn btn-outline" id="btn-add-cart">🛒 Thêm Vào Giỏ Hàng</button>
+        {% if best_voucher %}
+        <button type="submit" name="buy_now" value="1" class="btn btn-primary" id="btn-buy-now">Mua Với Voucher {{ "{:,.0f}".format(price_after_voucher) }}đ</button>
+        {% else %}
         <button type="submit" name="buy_now" value="1" class="btn btn-primary" id="btn-buy-now">Mua Ngay</button>
+        {% endif %}
       </div>
     </form>
   </div>
@@ -169,13 +211,74 @@
   </table>
   <h2>MÔ TẢ SẢN PHẨM</h2>
   <p class="description">{{ p['description'] }}</p>
-  {% if p['gallery_images'] %}
-  <div class="description-gallery">
-    {% for img in p['gallery_images'].split(',') %}
-    <img class="zoomable" data-group="desc" data-index="{{ loop.index0 }}" src="{{ url_for('static', filename=img) }}" alt="{{ p['name'] }}">
+  {% if description_blocks %}
+  <div class="description-blocks">
+    {% for b in description_blocks %}
+      {% if b['block_type'] == 'text' %}
+      <p class="description-block-text">{{ b['content'] }}</p>
+      {% else %}
+      <img class="description-block-image zoomable" data-group="descblocks" data-index="{{ loop.index0 }}"
+           src="{{ url_for('static', filename=b['image_path']) }}" alt="{{ p['name'] }}">
+      {% endif %}
     {% endfor %}
   </div>
   {% endif %}
+</div>
+</div>
+
+<div class="product-page-sidebar">
+  <div class="shop-info-card">
+    <div class="shop-info-card-header">
+      <span class="mini-thumb" style="background:#ee4d2d;"></span>
+      <div>
+        <strong>{{ shop_name }}</strong>
+        <div class="review-date">⭐ {{ shop_stats['rating'] }} · {{ shop_stats['total_products'] }} sản phẩm</div>
+      </div>
+    </div>
+    <div class="shop-info-card-actions">
+      <a href="{{ url_for('shop_home') }}" class="btn btn-outline btn-block">Xem Shop</a>
+    </div>
+  </div>
+
+  {% if vouchers %}
+  <div class="sidebar-voucher-box">
+    <h4>Mã Giảm Giá Của Shop</h4>
+    {% for v in vouchers %}
+    <div class="sidebar-voucher-item">
+      <div>
+        <strong>Giảm {{ v['discount_value'] }}{{ '%' if v['discount_type'] == 'percent' else 'đ' }}</strong>
+        <div class="review-date">Đơn từ {{ "{:,.0f}".format(v['min_order_value'] or 0) }}đ</div>
+      </div>
+      <span class="btn btn-outline sidebar-voucher-save">Lưu</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if top_products %}
+  <div class="sidebar-top-products">
+    <h4>Top Sản Phẩm Nổi Bật</h4>
+    {% for tp in top_products %}
+    <a class="sidebar-top-product-item" href="{{ url_for('product_detail', product_id=tp['id']) }}">
+      <div class="product-thumb" style="background:{{ tp['color_hex'] }}">
+        {% if tp['image_path'] %}<img src="{{ url_for('static', filename=tp['image_path']) }}" alt="{{ tp['name'] }}">{% else %}<span>{{ tp['name'][:2] }}</span>{% endif %}
+      </div>
+      <div>
+        <div class="sidebar-top-product-name">{{ tp['name'] }}</div>
+        <div class="price-now">{{ "{:,.0f}".format(tp['price']) }}đ</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+</div>
+
+<div class="trust-badges-section">
+  <div class="trust-badge"><span>🚚</span><span>Giao Hàng Hoả Tốc</span></div>
+  <div class="trust-badge"><span>↩️</span><span>Trả Hàng/Hoàn Tiền 15 Ngày</span></div>
+  <div class="trust-badge"><span>🛡️</span><span>Hàng Chính Hãng</span></div>
+  <div class="trust-badge"><span>✅</span><span>An Tâm Mua Sắm Cùng {{ shop_name }}</span></div>
 </div>
 
 {% if related %}
@@ -246,6 +349,28 @@
   });
   updateVariantDisplay();
 
+  // ---- Ảnh riêng theo màu: đổi ảnh chính khi khách chọn màu có ảnh riêng ----
+  var colorImages = {{ color_images_json|safe }};
+  var defaultGalleryMainHtml = document.getElementById('gallery-main') ? document.getElementById('gallery-main').innerHTML : '';
+
+  function updateColorImage() {
+    var colorInput = document.querySelector('input[name="color"]:checked');
+    var mainEl = document.getElementById('gallery-main');
+    if (!colorInput || !mainEl) return;
+    var imgUrl = colorImages[colorInput.value];
+    if (imgUrl) {
+      mainEl.innerHTML = '<img id="gallery-main-image" class="zoomable" data-group="main" data-index="0" src="' + imgUrl + '" alt="">';
+    } else {
+      mainEl.innerHTML = defaultGalleryMainHtml; // màu này chưa có ảnh riêng — về lại ảnh/video mặc định
+    }
+    document.querySelectorAll('#gallery-thumbs .gallery-thumb').forEach(function (t) { t.classList.remove('active'); });
+  }
+
+  document.querySelectorAll('input[name="color"]').forEach(function (el) {
+    el.addEventListener('change', updateColorImage);
+  });
+  updateColorImage();
+
   // ---- Gallery: hover trên thumbnail để đổi ảnh/video chính ----
   document.querySelectorAll('#gallery-thumbs .gallery-thumb').forEach(function (thumb) {
     thumb.addEventListener('mouseenter', function () {
@@ -269,14 +394,20 @@
   var lightboxIndex = 0;
 
   function collectGroupImages(group) {
-    // Bỏ qua ảnh preview chính (#gallery-main-image) vì nó luôn trùng với 1 thumbnail
-    // tương ứng — nếu không sẽ bị đếm 2 lần cho cùng 1 ảnh.
-    var items = Array.prototype.slice.call(document.querySelectorAll('[data-group="' + group + '"]'))
-      .filter(function (el) { return el.id !== 'gallery-main-image'; });
+    var items = Array.prototype.slice.call(document.querySelectorAll('[data-group="' + group + '"]'));
     items.sort(function (a, b) { return parseInt(a.getAttribute('data-index'), 10) - parseInt(b.getAttribute('data-index'), 10); });
-    return items.map(function (el) {
-      return el.tagName === 'IMG' ? el.getAttribute('src') : el.getAttribute('data-src');
+    // Khử trùng theo URL ảnh thực tế — #gallery-main-image thường trùng URL với 1 thumbnail
+    // tương ứng nên phải lọc, nhưng nếu là ảnh riêng theo màu (không trùng thumbnail nào)
+    // thì vẫn giữ lại để bấm phóng to được.
+    var seen = {};
+    var result = [];
+    items.forEach(function (el) {
+      var src = el.tagName === 'IMG' ? el.getAttribute('src') : el.getAttribute('data-src');
+      if (seen[src]) return;
+      seen[src] = true;
+      result.push(src);
     });
+    return result;
   }
 
   function showLightboxImage() {
@@ -342,5 +473,21 @@
     if (e.key === 'ArrowLeft' && lightboxPrevEl) lightboxPrevEl.click();
     if (e.key === 'ArrowRight' && lightboxNextEl) lightboxNextEl.click();
   });
+
+  // ---- Đếm ngược Flash Sale ----
+  var flsEl = document.getElementById('fls-countdown');
+  if (flsEl && flsEl.getAttribute('data-end')) {
+    var flsEnd = new Date(flsEl.getAttribute('data-end').replace(' ', 'T')).getTime();
+    function updateFlsCountdown() {
+      var diff = flsEnd - new Date().getTime();
+      if (isNaN(flsEnd) || diff <= 0) { flsEl.textContent = 'Đã kết thúc'; return; }
+      var h = Math.floor(diff / 3600000);
+      var m = Math.floor((diff % 3600000) / 60000);
+      var s = Math.floor((diff % 60000) / 1000);
+      flsEl.textContent = 'Kết thúc sau ' + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+    updateFlsCountdown();
+    setInterval(updateFlsCountdown, 1000);
+  }
 </script>
 {% endblock %}

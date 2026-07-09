@@ -34,9 +34,25 @@
       <span>{{ "{:,.0f}".format(item['price'] * item['qty']) }}đ</span>
     </div>
     {% endfor %}
+    <div class="summary-line">
+      <span>Tạm tính</span>
+      <span>{{ "{:,.0f}".format(total) }}đ</span>
+    </div>
+    {% if voucher %}
+    <div class="summary-line discount-line">
+      <span>Voucher {{ voucher['code'] }}</span>
+      <span>-{{ "{:,.0f}".format(voucher_discount) }}đ</span>
+    </div>
+    {% endif %}
+    {% if combo_discount %}
+    <div class="summary-line discount-line">
+      <span>Giảm giá combo</span>
+      <span>-{{ "{:,.0f}".format(combo_discount) }}đ</span>
+    </div>
+    {% endif %}
     <div class="summary-total">
       <span>Tổng cộng</span>
-      <span>{{ "{:,.0f}".format(total) }}đ</span>
+      <span>{{ "{:,.0f}".format(grand_total) }}đ</span>
     </div>
   </div>
 </div>

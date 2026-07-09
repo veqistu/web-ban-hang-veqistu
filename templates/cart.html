@@ -27,8 +27,38 @@
   {% endfor %}
 </table>
 
+{% if applied_combos %}
+<div class="combo-box">
+  <h4>🛍️ Combo Khuyến Mãi đã áp dụng</h4>
+  {% for c in applied_combos %}
+  <p>{{ c['name'] }} — Giảm {{ "{:,.0f}".format(c['discount_amount']) }}đ</p>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if voucher %}
+<div class="applied-voucher-line">
+  <span>🎫 Đã áp dụng mã <strong>{{ voucher['code'] }}</strong> — giảm {{ "{:,.0f}".format(voucher_discount) }}đ</span>
+  <a href="{{ url_for('cart_remove_voucher') }}" class="remove-link">Huỷ mã</a>
+</div>
+{% else %}
+<form method="post" action="{{ url_for('cart_apply_voucher') }}" class="voucher-code-form">
+  <input type="text" name="voucher_code" placeholder="Nhập mã voucher">
+  <button type="submit" class="btn btn-outline">Áp Dụng</button>
+</form>
+{% endif %}
+
 <div class="cart-summary">
-  <span>Tổng cộng: <strong>{{ "{:,.0f}".format(total) }}đ</strong></span>
+  <div>
+    <div class="summary-line"><span>Tạm tính</span><span>{{ "{:,.0f}".format(total) }}đ</span></div>
+    {% if voucher_discount %}
+    <div class="summary-line discount-line"><span>Giảm giá voucher</span><span>-{{ "{:,.0f}".format(voucher_discount) }}đ</span></div>
+    {% endif %}
+    {% if combo_discount %}
+    <div class="summary-line discount-line"><span>Giảm giá combo</span><span>-{{ "{:,.0f}".format(combo_discount) }}đ</span></div>
+    {% endif %}
+    <span>Tổng cộng: <strong>{{ "{:,.0f}".format(grand_total) }}đ</strong></span>
+  </div>
   <a href="{{ url_for('checkout') }}" class="btn btn-primary">Tiến Hành Đặt Hàng</a>
 </div>
 {% endif %}
