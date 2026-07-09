@@ -79,6 +79,8 @@ CREATE TABLE IF NOT EXISTS orders (
     status TEXT DEFAULT 'Chờ xác nhận',
     total_amount INTEGER NOT NULL,
     note TEXT,
+    voucher_code TEXT,
+    discount_amount INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -110,9 +112,88 @@ CREATE TABLE IF NOT EXISTS shop_page_block (
     subtitle TEXT,
     image_path TEXT,
     link_url TEXT,
+    aspect_ratio TEXT DEFAULT '2:1',
     display_order INTEGER DEFAULT 0,
     active INTEGER DEFAULT 1,
     created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS product_description_block (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL REFERENCES product(id),
+    block_type TEXT NOT NULL,
+    content TEXT,
+    image_path TEXT,
+    display_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS product_color_image (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL REFERENCES product(id),
+    color TEXT NOT NULL,
+    image_path TEXT NOT NULL,
+    UNIQUE(product_id, color)
+);
+
+CREATE TABLE IF NOT EXISTS voucher (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT UNIQUE NOT NULL,
+    name TEXT,
+    discount_type TEXT NOT NULL DEFAULT 'amount',
+    discount_value INTEGER NOT NULL,
+    max_discount_amount INTEGER,
+    min_order_value INTEGER DEFAULT 0,
+    total_usage_limit INTEGER,
+    used_count INTEGER DEFAULT 0,
+    scope TEXT NOT NULL DEFAULT 'shop',
+    start_at TEXT,
+    end_at TEXT,
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS voucher_product (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    voucher_id INTEGER NOT NULL REFERENCES voucher(id),
+    product_id INTEGER NOT NULL REFERENCES product(id),
+    UNIQUE(voucher_id, product_id)
+);
+
+CREATE TABLE IF NOT EXISTS combo_deal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    min_quantity INTEGER NOT NULL DEFAULT 2,
+    discount_amount INTEGER NOT NULL,
+    scope TEXT NOT NULL DEFAULT 'shop',
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS combo_deal_product (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    combo_id INTEGER NOT NULL REFERENCES combo_deal(id),
+    product_id INTEGER NOT NULL REFERENCES product(id),
+    UNIQUE(combo_id, product_id)
+);
+
+CREATE TABLE IF NOT EXISTS flash_sale (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    start_at TEXT NOT NULL,
+    end_at TEXT NOT NULL,
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS flash_sale_item (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    flash_sale_id INTEGER NOT NULL REFERENCES flash_sale(id),
+    product_id INTEGER NOT NULL REFERENCES product(id),
+    sale_price INTEGER NOT NULL,
+    stock_limit INTEGER DEFAULT 0,
+    sold_in_sale INTEGER DEFAULT 0,
+    UNIQUE(flash_sale_id, product_id)
 );
 """
 
@@ -126,6 +207,19 @@ def init_db():
 
 def _migrate(conn):
     """Thêm cột mới cho DB cũ (an toàn khi chạy lại nhiều lần)."""
+    shop_block_cols = {row["name"] for row in conn.execute("PRAGMA table_info(shop_page_block)").fetchall()}
+    if shop_block_cols and "aspect_ratio" not in shop_block_cols:
+        conn.execute("ALTER TABLE shop_page_block ADD COLUMN aspect_ratio TEXT DEFAULT '2:1'")
+        conn.commit()
+
+    orders_cols = {row["name"] for row in conn.execute("PRAGMA table_info(orders)").fetchall()}
+    if orders_cols:
+        if "voucher_code" not in orders_cols:
+            conn.execute("ALTER TABLE orders ADD COLUMN voucher_code TEXT")
+        if "discount_amount" not in orders_cols:
+            conn.execute("ALTER TABLE orders ADD COLUMN discount_amount INTEGER DEFAULT 0")
+        conn.commit()
+
     cols = {row["name"] for row in conn.execute("PRAGMA table_info(product)").fetchall()}
     new_columns = [
         ("gallery_images", "TEXT"),
@@ -186,9 +280,96 @@ def _migrate(conn):
             subtitle TEXT,
             image_path TEXT,
             link_url TEXT,
+            aspect_ratio TEXT DEFAULT '2:1',
             display_order INTEGER DEFAULT 0,
             active INTEGER DEFAULT 1,
             created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS product_description_block (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL REFERENCES product(id),
+            block_type TEXT NOT NULL,
+            content TEXT,
+            image_path TEXT,
+            display_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS product_color_image (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL REFERENCES product(id),
+            color TEXT NOT NULL,
+            image_path TEXT NOT NULL,
+            UNIQUE(product_id, color)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS voucher (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT UNIQUE NOT NULL,
+            name TEXT,
+            discount_type TEXT NOT NULL DEFAULT 'amount',
+            discount_value INTEGER NOT NULL,
+            max_discount_amount INTEGER,
+            min_order_value INTEGER DEFAULT 0,
+            total_usage_limit INTEGER,
+            used_count INTEGER DEFAULT 0,
+            scope TEXT NOT NULL DEFAULT 'shop',
+            start_at TEXT,
+            end_at TEXT,
+            active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS voucher_product (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            voucher_id INTEGER NOT NULL REFERENCES voucher(id),
+            product_id INTEGER NOT NULL REFERENCES product(id),
+            UNIQUE(voucher_id, product_id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS combo_deal (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            min_quantity INTEGER NOT NULL DEFAULT 2,
+            discount_amount INTEGER NOT NULL,
+            scope TEXT NOT NULL DEFAULT 'shop',
+            active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS combo_deal_product (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            combo_id INTEGER NOT NULL REFERENCES combo_deal(id),
+            product_id INTEGER NOT NULL REFERENCES product(id),
+            UNIQUE(combo_id, product_id)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS flash_sale (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            start_at TEXT NOT NULL,
+            end_at TEXT NOT NULL,
+            active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS flash_sale_item (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            flash_sale_id INTEGER NOT NULL REFERENCES flash_sale(id),
+            product_id INTEGER NOT NULL REFERENCES product(id),
+            sale_price INTEGER NOT NULL,
+            stock_limit INTEGER DEFAULT 0,
+            sold_in_sale INTEGER DEFAULT 0,
+            UNIQUE(flash_sale_id, product_id)
         )
     """)
     conn.commit()
