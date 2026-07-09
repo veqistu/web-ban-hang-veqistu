@@ -16,7 +16,30 @@
   </header>
   <main class="admin-main">
     <h1>{{ 'Sửa' if p else 'Thêm' }} sản phẩm</h1>
-    <form method="post" class="admin-form">
+    <form method="post" class="admin-form" enctype="multipart/form-data" id="product-form">
+
+      <h2 class="admin-section-title">Thông tin cơ bản</h2>
+
+      <label>Ảnh chính sản phẩm</label>
+      {% if p and p['image_path'] %}
+      <div class="current-image-preview">
+        <img src="{{ url_for('static', filename=p['image_path']) }}" alt="Ảnh hiện tại">
+        <span>Ảnh hiện tại — chọn ảnh mới bên dưới nếu muốn thay đổi.</span>
+      </div>
+      {% endif %}
+      <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif">
+
+      <label>Ảnh thêm cho phần mô tả (chọn được nhiều ảnh)</label>
+      {% if p and p['gallery_images'] %}
+      <div class="current-image-preview">
+        {% for img in p['gallery_images'].split(',') %}
+          <img src="{{ url_for('static', filename=img) }}" alt="Ảnh mô tả">
+        {% endfor %}
+      </div>
+      <span class="gallery-note-admin">Đang có {{ p['gallery_images'].split(',')|length }} ảnh — chọn ảnh mới bên dưới sẽ THAY THẾ toàn bộ ảnh này.</span>
+      {% endif %}
+      <input type="file" name="gallery_images" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
+
       <label>Tên sản phẩm *</label>
       <input type="text" name="name" value="{{ p['name'] if p else '' }}" required>
 
@@ -27,9 +50,89 @@
         {% endfor %}
       </select>
 
+      <h2 class="admin-section-title">Thông tin chi tiết</h2>
+
       <div class="form-row">
         <div>
-          <label>Giá bán (đ) *</label>
+          <label>Thương hiệu</label>
+          <input type="text" name="brand" value="{{ p['brand'] if p and p['brand'] else 'No brand' }}">
+        </div>
+        <div>
+          <label>Xuất xứ</label>
+          <input type="text" name="origin" value="{{ p['origin'] if p else 'Việt Nam' }}">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Chất liệu</label>
+          <input type="text" name="material" value="{{ p['material'] if p else 'Cotton' }}">
+        </div>
+        <div>
+          <label>Cổ áo</label>
+          <input type="text" name="collar" value="{{ p['collar'] if p else 'Cổ tròn' }}">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Mẫu (hoạ tiết)</label>
+          <input type="text" name="pattern" value="{{ p['pattern'] if p and p['pattern'] else '' }}">
+        </div>
+        <div>
+          <label>Mùa</label>
+          <input type="text" name="season" value="{{ p['season'] if p and p['season'] else '' }}">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Chiều dài tay áo</label>
+          <input type="text" name="sleeve_length" value="{{ p['sleeve_length'] if p and p['sleeve_length'] else 'Tay ngắn' }}">
+        </div>
+        <div>
+          <label>Phong cách</label>
+          <input type="text" name="style" value="{{ p['style'] if p else 'Thể thao' }}">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Chiều dài áo</label>
+          <input type="text" name="garment_length" value="{{ p['garment_length'] if p and p['garment_length'] else '' }}">
+        </div>
+        <div>
+          <label>Dáng kiểu áo</label>
+          <input type="text" name="fit" value="{{ p['fit'] if p and p['fit'] else '' }}">
+        </div>
+      </div>
+
+      <h2 class="admin-section-title">Mô tả</h2>
+
+      <label>Mô tả sản phẩm</label>
+      <textarea name="description" rows="5">{{ p['description'] if p else '' }}</textarea>
+
+      <h2 class="admin-section-title">Thông tin bán hàng</h2>
+
+      <div class="form-row">
+        <div>
+          <label>Màu sắc — Phân loại 1 (cách nhau bằng dấu phẩy)</label>
+          <input type="text" name="colors" id="colors-input" value="{{ p['colors'] if p else 'Đen,Trắng,Xám' }}">
+        </div>
+        <div>
+          <label>Size — Phân loại 2 (cách nhau bằng dấu phẩy)</label>
+          <input type="text" name="sizes" id="sizes-input" value="{{ p['sizes'] if p else 'M,L,XL' }}">
+        </div>
+      </div>
+
+      <button type="button" id="btn-generate-variants" class="btn btn-outline">Tạo / cập nhật bảng phân loại</button>
+      <p class="variant-hint">Bấm nút này sau khi sửa danh sách Màu sắc/Size ở trên để tạo bảng giá — kho — SKU riêng cho từng phân loại, giống trang quản trị Shopee. Dòng nào để trống ô Giá sẽ không được lưu (dùng khi phân loại đó không bán).</p>
+      <div id="variant-table-container"></div>
+      <input type="hidden" name="variants_json" id="variants-json-input" value="[]">
+
+      <div class="form-row">
+        <div>
+          <label>Giá bán mặc định (đ) * — dùng khi sản phẩm không có bảng phân loại ở trên</label>
           <input type="number" name="price" value="{{ p['price'] if p else '' }}" required>
         </div>
         <div>
@@ -40,40 +143,7 @@
 
       <div class="form-row">
         <div>
-          <label>Chất liệu</label>
-          <input type="text" name="material" value="{{ p['material'] if p else 'Cotton' }}">
-        </div>
-        <div>
-          <label>Phong cách</label>
-          <input type="text" name="style" value="{{ p['style'] if p else 'Thể thao' }}">
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div>
-          <label>Xuất xứ</label>
-          <input type="text" name="origin" value="{{ p['origin'] if p else 'Việt Nam' }}">
-        </div>
-        <div>
-          <label>Cổ áo</label>
-          <input type="text" name="collar" value="{{ p['collar'] if p else 'Cổ tròn' }}">
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div>
-          <label>Màu sắc (cách nhau bằng dấu phẩy)</label>
-          <input type="text" name="colors" value="{{ p['colors'] if p else 'Đen,Trắng,Xám' }}">
-        </div>
-        <div>
-          <label>Size (cách nhau bằng dấu phẩy)</label>
-          <input type="text" name="sizes" value="{{ p['sizes'] if p else 'M,L,XL' }}">
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div>
-          <label>Tồn kho</label>
+          <label>Tồn kho mặc định — dùng khi không có bảng phân loại</label>
           <input type="number" name="stock" value="{{ p['stock'] if p else 100 }}">
         </div>
         <div>
@@ -82,13 +152,113 @@
         </div>
       </div>
 
-      <label>Mô tả sản phẩm</label>
-      <textarea name="description" rows="5">{{ p['description'] if p else '' }}</textarea>
+      <h2 class="admin-section-title">Vận chuyển</h2>
+
+      <div class="form-row">
+        <div>
+          <label>Cân nặng sau khi đóng gói (gram)</label>
+          <input type="number" name="weight_grams" value="{{ p['weight_grams'] if p and p['weight_grams'] else 100 }}">
+        </div>
+      </div>
+
+      <label>Kích thước đóng gói (cm)</label>
+      <div class="form-row form-row-3">
+        <div>
+          <input type="number" name="package_length_cm" placeholder="Dài" value="{{ p['package_length_cm'] if p and p['package_length_cm'] else 1 }}">
+        </div>
+        <div>
+          <input type="number" name="package_width_cm" placeholder="Rộng" value="{{ p['package_width_cm'] if p and p['package_width_cm'] else 1 }}">
+        </div>
+        <div>
+          <input type="number" name="package_height_cm" placeholder="Cao" value="{{ p['package_height_cm'] if p and p['package_height_cm'] else 1 }}">
+        </div>
+      </div>
+
+      <label>Phí vận chuyển</label>
+      <div class="shipping-option-row">
+        <label class="shipping-toggle-label">
+          <input type="checkbox" name="ship_hoa_toc_enabled" {{ 'checked' if p and p['ship_hoa_toc_enabled'] }}> Hoả Tốc
+        </label>
+        <input type="number" name="ship_hoa_toc_fee" value="{{ p['ship_hoa_toc_fee'] if p and p['ship_hoa_toc_fee'] else 22000 }}"> đ
+      </div>
+      <div class="shipping-option-row">
+        <label class="shipping-toggle-label">
+          <input type="checkbox" name="ship_nhanh_enabled" {{ 'checked' if not p or p['ship_nhanh_enabled'] }}> Nhanh
+        </label>
+        <input type="number" name="ship_nhanh_fee" value="{{ p['ship_nhanh_fee'] if p and p['ship_nhanh_fee'] else 16500 }}"> đ
+      </div>
+
+      <label>Hàng Đặt Trước</label>
+      <div class="form-row">
+        <label><input type="radio" name="is_preorder" value="" {{ 'checked' if not p or not p['is_preorder'] }}> Không</label>
+        <label><input type="radio" name="is_preorder" value="1" {{ 'checked' if p and p['is_preorder'] }}> Có</label>
+      </div>
 
       <label><input type="checkbox" name="active" {{ 'checked' if not p or p['active'] }}> Đang bán (hiện trên web)</label>
 
       <button type="submit" class="btn btn-primary">Lưu sản phẩm</button>
     </form>
   </main>
+
+  <script>
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    var existingVariants = {{ variants_json|safe }};
+    var currentVariants = existingVariants.slice();
+
+    function renderVariantTable() {
+      var container = document.getElementById('variant-table-container');
+      if (!currentVariants.length) {
+        container.innerHTML = '<p class="variant-empty-note">Chưa có phân loại nào. Nhập Màu sắc và Size ở trên rồi bấm "Tạo / cập nhật bảng phân loại".</p>';
+        return;
+      }
+      var html = '<table class="variant-table"><tr><th>Màu sắc</th><th>Size</th><th>Giá (đ)</th><th>Kho hàng</th><th>SKU</th><th>GTIN</th></tr>';
+      currentVariants.forEach(function (v, i) {
+        html += '<tr>' +
+          '<td>' + escapeHtml(v.color) + '</td>' +
+          '<td>' + escapeHtml(v.size) + '</td>' +
+          '<td><input type="number" min="0" data-idx="' + i + '" data-field="price" value="' + (v.price === undefined || v.price === null ? '' : escapeHtml(v.price)) + '"></td>' +
+          '<td><input type="number" min="0" data-idx="' + i + '" data-field="stock" value="' + escapeHtml(v.stock || 0) + '"></td>' +
+          '<td><input type="text" data-idx="' + i + '" data-field="sku" value="' + escapeHtml(v.sku || '') + '"></td>' +
+          '<td><input type="text" data-idx="' + i + '" data-field="gtin" value="' + escapeHtml(v.gtin || '') + '"></td>' +
+          '</tr>';
+      });
+      html += '</table>';
+      container.innerHTML = html;
+      container.querySelectorAll('input').forEach(function (inp) {
+        inp.addEventListener('input', function (e) {
+          var idx = e.target.getAttribute('data-idx');
+          var field = e.target.getAttribute('data-field');
+          currentVariants[idx][field] = e.target.value;
+        });
+      });
+    }
+
+    function generateVariantGrid() {
+      var colors = document.getElementById('colors-input').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      var sizes = document.getElementById('sizes-input').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      var next = [];
+      colors.forEach(function (color) {
+        sizes.forEach(function (size) {
+          var existing = currentVariants.find(function (v) { return v.color === color && v.size === size; });
+          next.push(existing || { color: color, size: size, price: '', stock: 0, sku: '', gtin: '' });
+        });
+      });
+      currentVariants = next;
+      renderVariantTable();
+    }
+
+    document.getElementById('btn-generate-variants').addEventListener('click', generateVariantGrid);
+    renderVariantTable();
+
+    document.getElementById('product-form').addEventListener('submit', function () {
+      var cleaned = currentVariants.filter(function (v) { return v.price !== '' && v.price !== null && v.price !== undefined; });
+      document.getElementById('variants-json-input').value = JSON.stringify(cleaned);
+    });
+  </script>
 </body>
 </html>
