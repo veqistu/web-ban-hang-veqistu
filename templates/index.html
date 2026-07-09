@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="shop-banner">
+  <h1>{{ shop_name }}</h1>
+  <p>Local Brand Việt Nam · Áo thun form rộng, chất cotton 250gsm, chuẩn form Shopee bestseller</p>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h3>Danh Mục</h3>
+    <ul class="category-list">
+      <li><a href="{{ url_for('index', sort=active_sort) }}" class="{{ 'active' if not active_category else '' }}">Tất cả sản phẩm</a></li>
+      {% for c in categories %}
+      <li><a href="{{ url_for('index', category=c['id'], sort=active_sort) }}" class="{{ 'active' if active_category==c['id'] else '' }}">{{ c['name'] }}</a></li>
+      {% endfor %}
+    </ul>
+  </aside>
+
+  <section class="product-area">
+    <div class="sort-bar">
+      <span>Sắp xếp theo</span>
+      {% set sorts = [('pho_bien','Phổ Biến'), ('moi_nhat','Mới Nhất'), ('ban_chay','Bán Chạy'), ('gia_tang','Giá ↑'), ('gia_giam','Giá ↓')] %}
+      {% for key, label in sorts %}
+        <a class="sort-btn {{ 'active' if active_sort==key else '' }}"
+           href="{{ url_for('index', category=active_category, sort=key) }}">{{ label }}</a>
+      {% endfor %}
+    </div>
+
+    <div class="product-grid">
+      {% for p in products %}
+      <a class="product-card" href="{{ url_for('product_detail', product_id=p['id']) }}">
+        <div class="product-thumb" style="background:{{ p['color_hex'] }}">
+          <span>{{ p['name'][:2] }}</span>
+          {% if p['original_price'] %}
+          <div class="discount-badge">-{{ ((1 - p['price']/p['original_price']) * 100) | round | int }}%</div>
+          {% endif %}
+        </div>
+        <div class="product-info">
+          <div class="product-name">{{ p['name'] }}</div>
+          <div class="product-price">
+            <span class="price-now">{{ "{:,.0f}".format(p['price']) }}đ</span>
+            {% if p['original_price'] %}<span class="price-old">{{ "{:,.0f}".format(p['original_price']) }}đ</span>{% endif %}
+          </div>
+          <div class="product-meta">
+            <span class="rating">⭐ {{ p['rating'] }}</span>
+            <span class="sold">Đã bán {{ p['sold_count'] }}</span>
+          </div>
+        </div>
+      </a>
+      {% else %}
+      <p>Chưa có sản phẩm nào trong danh mục này.</p>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

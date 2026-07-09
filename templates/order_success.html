@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Đặt hàng thành công | {{ shop_name }}{% endblock %}
+{% block content %}
+<div class="order-success">
+  <h1>✅ Đặt hàng thành công!</h1>
+  <p>Mã đơn hàng: <strong>DH{{ order['id'] }}</strong></p>
+  <p>Tổng tiền: <strong>{{ "{:,.0f}".format(order['total_amount']) }}đ</strong></p>
+
+  {% if order['payment_method'] == 'bank_transfer' %}
+    {% if qr %}
+      <div class="qr-box">
+        <p>Quét mã QR bên dưới để chuyển khoản đúng số tiền và nội dung:</p>
+        <img src="{{ qr }}" alt="VietQR" class="qr-image">
+      </div>
+    {% else %}
+      <p class="qr-missing">Shop chưa cấu hình tài khoản ngân hàng để tạo mã QR tự động — vui lòng liên hệ shop để được hướng dẫn chuyển khoản.</p>
+    {% endif %}
+  {% else %}
+    <p>Bạn đã chọn <strong>Thanh toán khi nhận hàng (COD)</strong> — vui lòng chuẩn bị đúng số tiền khi nhận hàng.</p>
+  {% endif %}
+
+  <h3>Chi tiết đơn hàng</h3>
+  {% for item in items %}
+  <div class="summary-line">
+    <span>{{ item['product_name'] }} ({{ item['variant'] }}) x{{ item['quantity'] }}</span>
+    <span>{{ "{:,.0f}".format(item['unit_price'] * item['quantity']) }}đ</span>
+  </div>
+  {% endfor %}
+
+  <a href="{{ url_for('index') }}" class="btn btn-primary">Tiếp tục mua sắm</a>
+</div>
+{% endblock %}

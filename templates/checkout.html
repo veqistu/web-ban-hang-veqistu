@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Đặt hàng | {{ shop_name }}{% endblock %}
+{% block content %}
+<h1 class="page-title">Thông Tin Đặt Hàng</h1>
+
+<div class="checkout-layout">
+  <form method="post" class="checkout-form">
+    <label>Họ và tên *</label>
+    <input type="text" name="name" required>
+
+    <label>Số điện thoại *</label>
+    <input type="tel" name="phone" required>
+
+    <label>Địa chỉ giao hàng *</label>
+    <textarea name="address" required></textarea>
+
+    <label>Ghi chú (tuỳ chọn)</label>
+    <textarea name="note"></textarea>
+
+    <label>Hình thức thanh toán *</label>
+    <div class="payment-options">
+      <label class="variant-chip"><input type="radio" name="payment_method" value="bank_transfer" checked> <span>Chuyển khoản QR</span></label>
+      <label class="variant-chip"><input type="radio" name="payment_method" value="cod"> <span>Thanh toán khi nhận hàng (COD)</span></label>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block">Đặt Hàng</button>
+  </form>
+
+  <div class="order-summary">
+    <h3>Đơn hàng của bạn</h3>
+    {% for item in cart %}
+    <div class="summary-line">
+      <span>{{ item['name'] }} ({{ item['variant'] }}) x{{ item['qty'] }}</span>
+      <span>{{ "{:,.0f}".format(item['price'] * item['qty']) }}đ</span>
+    </div>
+    {% endfor %}
+    <div class="summary-total">
+      <span>Tổng cộng</span>
+      <span>{{ "{:,.0f}".format(total) }}đ</span>
+    </div>
+  </div>
+</div>
+{% endblock %}

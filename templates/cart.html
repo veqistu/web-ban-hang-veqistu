@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Giỏ hàng | {{ shop_name }}{% endblock %}
+{% block content %}
+<h1 class="page-title">Giỏ Hàng</h1>
+
+{% if not cart %}
+  <p>Giỏ hàng của bạn đang trống. <a href="{{ url_for('index') }}">Tiếp tục mua sắm</a></p>
+{% else %}
+<table class="cart-table">
+  <tr><th>Sản phẩm</th><th>Phân loại</th><th>Đơn giá</th><th>Số lượng</th><th>Thành tiền</th><th></th></tr>
+  {% for item in cart %}
+  <tr>
+    <td class="cart-product">
+      <span class="mini-thumb" style="background:{{ item['color_hex'] }}"></span>
+      {{ item['name'] }}
+    </td>
+    <td>{{ item['variant'] }}</td>
+    <td>{{ "{:,.0f}".format(item['price']) }}đ</td>
+    <td>
+      <form method="post" action="{{ url_for('cart_update', index=loop.index0) }}">
+        <input type="number" name="qty" value="{{ item['qty'] }}" min="1" onchange="this.form.submit()">
+      </form>
+    </td>
+    <td>{{ "{:,.0f}".format(item['price'] * item['qty']) }}đ</td>
+    <td><a href="{{ url_for('cart_remove', index=loop.index0) }}" class="remove-link">Xoá</a></td>
+  </tr>
+  {% endfor %}
+</table>
+
+<div class="cart-summary">
+  <span>Tổng cộng: <strong>{{ "{:,.0f}".format(total) }}đ</strong></span>
+  <a href="{{ url_for('checkout') }}" class="btn btn-primary">Tiến Hành Đặt Hàng</a>
+</div>
+{% endif %}
+{% endblock %}

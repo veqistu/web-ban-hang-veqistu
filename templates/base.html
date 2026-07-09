@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ shop_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="{{ url_for('index') }}" class="logo">{{ shop_name }}</a>
+      <form class="search" action="{{ url_for('index') }}" method="get">
+        <input type="text" name="q" placeholder="Tìm sản phẩm trong shop...">
+        <button type="submit">🔍</button>
+      </form>
+      <a href="{{ url_for('cart_view') }}" class="cart-link">
+        🛒 Giỏ hàng
+        {% if cart_count %}<span class="badge">{{ cart_count }}</span>{% endif %}
+      </a>
+    </div>
+  </header>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="flash">{% for m in messages %}<p>{{ m }}</p>{% endfor %}</div>
+    {% endif %}
+  {% endwith %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <p>{{ shop_name }} — Local Brand Việt Nam · Miễn phí vận chuyển toàn quốc · Hỗ trợ đổi size trong 15 ngày</p>
+  </footer>
+</body>
+</html>

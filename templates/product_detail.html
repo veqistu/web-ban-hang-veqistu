@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ p['name'] }} | {{ shop_name }}{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{{ url_for('index') }}">{{ shop_name }}</a> / Sản phẩm</div>
+
+<div class="product-detail">
+  <div class="gallery">
+    <div class="gallery-main" style="background:{{ p['color_hex'] }}">
+      <span>{{ p['name'][:2] }}</span>
+    </div>
+    <p class="gallery-note">Ảnh minh hoạ — upload ảnh thật qua trang quản trị.</p>
+  </div>
+
+  <div class="detail-info">
+    <h1>{{ p['name'] }}</h1>
+    <div class="product-meta">
+      <span class="rating">⭐ {{ p['rating'] }} Đánh giá shop</span>
+      <span class="sold">Đã bán {{ p['sold_count'] }}</span>
+    </div>
+
+    <div class="price-box">
+      <span class="price-now">{{ "{:,.0f}".format(p['price']) }}đ</span>
+      {% if p['original_price'] %}
+        <span class="price-old">{{ "{:,.0f}".format(p['original_price']) }}đ</span>
+        <span class="discount-badge">-{{ ((1 - p['price']/p['original_price']) * 100) | round | int }}%</span>
+      {% endif %}
+    </div>
+
+    <form method="post" action="{{ url_for('cart_add') }}" class="variant-form">
+      <input type="hidden" name="product_id" value="{{ p['id'] }}">
+
+      <div class="variant-group">
+        <label>Màu Sắc</label>
+        <div class="variant-options">
+          {% for color in p['colors'].split(',') %}
+          <label class="variant-chip">
+            <input type="radio" name="color" value="{{ color }}" {{ 'checked' if loop.first }}>
+            <span>{{ color }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="variant-group">
+        <label>Size Áo</label>
+        <div class="variant-options">
+          {% for size in p['sizes'].split(',') %}
+          <label class="variant-chip">
+            <input type="radio" name="size" value="{{ size }}" {{ 'checked' if loop.first }}>
+            <span>{{ size }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="qty-group">
+        <label>Số Lượng</label>
+        <input type="number" name="qty" value="1" min="1" max="{{ p['stock'] }}">
+        <span class="stock-note">{{ p['stock'] }} sản phẩm có sẵn</span>
+      </div>
+
+      <div class="action-buttons">
+        <button type="submit" class="btn btn-outline">🛒 Thêm Vào Giỏ Hàng</button>
+        <button type="submit" name="buy_now" value="1" class="btn btn-primary">Mua Ngay</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="spec-box">
+  <h2>CHI TIẾT SẢN PHẨM</h2>
+  <table class="spec-table">
+    <tr><th>Kho</th><td>{{ p['stock'] }} sản phẩm</td></tr>
+    <tr><th>Chất liệu</th><td>{{ p['material'] }}</td></tr>
+    <tr><th>Phong cách</th><td>{{ p['style'] }}</td></tr>
+    <tr><th>Xuất xứ</th><td>{{ p['origin'] }}</td></tr>
+    <tr><th>Cổ áo</th><td>{{ p['collar'] }}</td></tr>
+  </table>
+  <h2>MÔ TẢ SẢN PHẨM</h2>
+  <p class="description">{{ p['description'] }}</p>
+</div>
+
+{% if related %}
+<div class="related-section">
+  <h2>Sản phẩm liên quan</h2>
+  <div class="product-grid">
+    {% for r in related %}
+    <a class="product-card" href="{{ url_for('product_detail', product_id=r['id']) }}">
+      <div class="product-thumb" style="background:{{ r['color_hex'] }}"><span>{{ r['name'][:2] }}</span></div>
+      <div class="product-info">
+        <div class="product-name">{{ r['name'] }}</div>
+        <div class="product-price"><span class="price-now">{{ "{:,.0f}".format(r['price']) }}đ</span></div>
+        <div class="product-meta">
+          <span class="rating">⭐ {{ r['rating'] }}</span>
+          <span class="sold">Đã bán {{ r['sold_count'] }}</span>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
