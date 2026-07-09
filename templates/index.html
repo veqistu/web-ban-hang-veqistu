@@ -30,7 +30,11 @@
       {% for p in products %}
       <a class="product-card" href="{{ url_for('product_detail', product_id=p['id']) }}">
         <div class="product-thumb" style="background:{{ p['color_hex'] }}">
+          {% if p['image_path'] %}
+          <img src="{{ url_for('static', filename=p['image_path']) }}" alt="{{ p['name'] }}">
+          {% else %}
           <span>{{ p['name'][:2] }}</span>
+          {% endif %}
           {% if p['original_price'] %}
           <div class="discount-badge">-{{ ((1 - p['price']/p['original_price']) * 100) | round | int }}%</div>
           {% endif %}
@@ -38,7 +42,7 @@
         <div class="product-info">
           <div class="product-name">{{ p['name'] }}</div>
           <div class="product-price">
-            <span class="price-now">{{ "{:,.0f}".format(p['price']) }}đ</span>
+            <span class="price-now">{% if p['variant_price_count'] and p['variant_price_count'] > 1 %}Từ {% endif %}{{ "{:,.0f}".format(p['price']) }}đ</span>
             {% if p['original_price'] %}<span class="price-old">{{ "{:,.0f}".format(p['original_price']) }}đ</span>{% endif %}
           </div>
           <div class="product-meta">

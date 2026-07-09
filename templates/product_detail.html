@@ -6,9 +6,22 @@
 <div class="product-detail">
   <div class="gallery">
     <div class="gallery-main" style="background:{{ p['color_hex'] }}">
+      {% if p['image_path'] %}
+      <img src="{{ url_for('static', filename=p['image_path']) }}" alt="{{ p['name'] }}">
+      {% else %}
       <span>{{ p['name'][:2] }}</span>
+      {% endif %}
     </div>
+    {% if p['gallery_images'] %}
+    <div class="gallery-thumbs">
+      {% for img in p['gallery_images'].split(',') %}
+      <img src="{{ url_for('static', filename=img) }}" alt="{{ p['name'] }}">
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if not p['image_path'] %}
     <p class="gallery-note">Ảnh minh hoạ — upload ảnh thật qua trang quản trị.</p>
+    {% endif %}
   </div>
 
   <div class="detail-info">
@@ -18,15 +31,15 @@
       <span class="sold">Đã bán {{ p['sold_count'] }}</span>
     </div>
 
-    <div class="price-box">
-      <span class="price-now">{{ "{:,.0f}".format(p['price']) }}đ</span>
+    <div class="price-box" id="price-box">
+      <span class="price-now" id="price-now">{{ "{:,.0f}".format(p['price']) }}đ</span>
       {% if p['original_price'] %}
-        <span class="price-old">{{ "{:,.0f}".format(p['original_price']) }}đ</span>
-        <span class="discount-badge">-{{ ((1 - p['price']/p['original_price']) * 100) | round | int }}%</span>
+        <span class="price-old" id="price-old">{{ "{:,.0f}".format(p['original_price']) }}đ</span>
+        <span class="discount-badge" id="discount-badge">-{{ ((1 - p['price']/p['original_price']) * 100) | round | int }}%</span>
       {% endif %}
     </div>
 
-    <form method="post" action="{{ url_for('cart_add') }}" class="variant-form">
+    <form method="post" action="{{ url_for('cart_add') }}" class="variant-form" id="variant-form">
       <input type="hidden" name="product_id" value="{{ p['id'] }}">
 
       <div class="variant-group">
@@ -55,13 +68,13 @@
 
       <div class="qty-group">
         <label>Số Lượng</label>
-        <input type="number" name="qty" value="1" min="1" max="{{ p['stock'] }}">
-        <span class="stock-note">{{ p['stock'] }} sản phẩm có sẵn</span>
+        <input type="number" name="qty" id="qty-input" value="1" min="1" max="{{ p['stock'] }}">
+        <span class="stock-note" id="stock-note">{{ p['stock'] }} sản phẩm có sẵn</span>
       </div>
 
       <div class="action-buttons">
-        <button type="submit" class="btn btn-outline">🛒 Thêm Vào Giỏ Hàng</button>
-        <button type="submit" name="buy_now" value="1" class="btn btn-primary">Mua Ngay</button>
+        <button type="submit" class="btn btn-outline" id="btn-add-cart">🛒 Thêm Vào Giỏ Hàng</button>
+        <button type="submit" name="buy_now" value="1" class="btn btn-primary" id="btn-buy-now">Mua Ngay</button>
       </div>
     </form>
   </div>
@@ -71,13 +84,26 @@
   <h2>CHI TIẾT SẢN PHẨM</h2>
   <table class="spec-table">
     <tr><th>Kho</th><td>{{ p['stock'] }} sản phẩm</td></tr>
+    <tr><th>Thương hiệu</th><td>{{ p['brand'] or 'No brand' }}</td></tr>
     <tr><th>Chất liệu</th><td>{{ p['material'] }}</td></tr>
     <tr><th>Phong cách</th><td>{{ p['style'] }}</td></tr>
     <tr><th>Xuất xứ</th><td>{{ p['origin'] }}</td></tr>
     <tr><th>Cổ áo</th><td>{{ p['collar'] }}</td></tr>
+    {% if p['pattern'] %}<tr><th>Mẫu</th><td>{{ p['pattern'] }}</td></tr>{% endif %}
+    {% if p['season'] %}<tr><th>Mùa</th><td>{{ p['season'] }}</td></tr>{% endif %}
+    {% if p['sleeve_length'] %}<tr><th>Chiều dài tay áo</th><td>{{ p['sleeve_length'] }}</td></tr>{% endif %}
+    {% if p['garment_length'] %}<tr><th>Chiều dài áo</th><td>{{ p['garment_length'] }}</td></tr>{% endif %}
+    {% if p['fit'] %}<tr><th>Dáng kiểu áo</th><td>{{ p['fit'] }}</td></tr>{% endif %}
   </table>
   <h2>MÔ TẢ SẢN PHẨM</h2>
   <p class="description">{{ p['description'] }}</p>
+  {% if p['gallery_images'] %}
+  <div class="description-gallery">
+    {% for img in p['gallery_images'].split(',') %}
+    <img src="{{ url_for('static', filename=img) }}" alt="{{ p['name'] }}">
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 
 {% if related %}
@@ -86,7 +112,9 @@
   <div class="product-grid">
     {% for r in related %}
     <a class="product-card" href="{{ url_for('product_detail', product_id=r['id']) }}">
-      <div class="product-thumb" style="background:{{ r['color_hex'] }}"><span>{{ r['name'][:2] }}</span></div>
+      <div class="product-thumb" style="background:{{ r['color_hex'] }}">
+        {% if r['image_path'] %}<img src="{{ url_for('static', filename=r['image_path']) }}" alt="{{ r['name'] }}">{% else %}<span>{{ r['name'][:2] }}</span>{% endif %}
+      </div>
       <div class="product-info">
         <div class="product-name">{{ r['name'] }}</div>
         <div class="product-price"><span class="price-now">{{ "{:,.0f}".format(r['price']) }}đ</span></div>
@@ -100,4 +128,50 @@
   </div>
 </div>
 {% endif %}
+
+<script>
+  var productVariants = {{ variants_json|safe }};
+
+  function formatMoney(n) {
+    return new Intl.NumberFormat('vi-VN').format(Math.round(n)) + 'đ';
+  }
+
+  function findSelectedVariant() {
+    var colorInput = document.querySelector('input[name="color"]:checked');
+    var sizeInput = document.querySelector('input[name="size"]:checked');
+    if (!colorInput || !sizeInput || !productVariants.length) return null;
+    return productVariants.find(function (v) { return v.color === colorInput.value && v.size === sizeInput.value; }) || null;
+  }
+
+  function updateVariantDisplay() {
+    if (!productVariants.length) return; // sản phẩm không có bảng phân loại riêng — dùng giá/kho mặc định
+    var variant = findSelectedVariant();
+    var priceNow = document.getElementById('price-now');
+    var stockNote = document.getElementById('stock-note');
+    var qtyInput = document.getElementById('qty-input');
+    var addBtn = document.getElementById('btn-add-cart');
+    var buyBtn = document.getElementById('btn-buy-now');
+
+    if (!variant) {
+      if (stockNote) stockNote.textContent = 'Phân loại này hiện chưa mở bán';
+      if (addBtn) addBtn.disabled = true;
+      if (buyBtn) buyBtn.disabled = true;
+      return;
+    }
+
+    if (priceNow) priceNow.textContent = formatMoney(variant.price);
+    if (qtyInput) qtyInput.max = variant.stock;
+    if (stockNote) {
+      stockNote.textContent = variant.stock > 0 ? (variant.stock + ' sản phẩm có sẵn') : 'Hết hàng';
+    }
+    var outOfStock = variant.stock <= 0;
+    if (addBtn) addBtn.disabled = outOfStock;
+    if (buyBtn) buyBtn.disabled = outOfStock;
+  }
+
+  document.querySelectorAll('input[name="color"], input[name="size"]').forEach(function (el) {
+    el.addEventListener('change', updateVariantDisplay);
+  });
+  updateVariantDisplay();
+</script>
 {% endblock %}
