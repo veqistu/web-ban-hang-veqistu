@@ -12,6 +12,9 @@
       <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
       <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
       <a href="{{ url_for('admin_shop_decoration') }}">Trang trí Shop</a>
+      <a href="{{ url_for('admin_voucher_list') }}">Voucher</a>
+      <a href="{{ url_for('admin_combo_list') }}">Combo</a>
+      <a href="{{ url_for('admin_flash_sale_list') }}">Flash Sale</a>
       <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
     </nav>
   </header>
@@ -21,6 +24,8 @@
     <p><strong>Địa chỉ:</strong> {{ order['address'] }}</p>
     {% if order['note'] %}<p><strong>Ghi chú:</strong> {{ order['note'] }}</p>{% endif %}
     <p><strong>Thanh toán:</strong> {{ 'Chuyển khoản QR' if order['payment_method']=='bank_transfer' else 'COD' }}</p>
+    {% if order['voucher_code'] %}<p><strong>Voucher:</strong> {{ order['voucher_code'] }}</p>{% endif %}
+    {% if order['discount_amount'] %}<p><strong>Đã giảm:</strong> {{ "{:,.0f}".format(order['discount_amount']) }}đ</p>{% endif %}
     <p><strong>Tổng tiền:</strong> {{ "{:,.0f}".format(order['total_amount']) }}đ</p>
 
     <form method="post" action="{{ url_for('admin_order_status', order_id=order['id']) }}" class="status-form">

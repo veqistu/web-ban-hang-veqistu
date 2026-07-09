@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Flash Sale | {{ shop_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="admin-header">
+    <strong>{{ shop_name }} — Quản trị</strong>
+    <nav>
+      <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
+      <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
+      <a href="{{ url_for('admin_shop_decoration') }}">Trang trí Shop</a>
+      <a href="{{ url_for('admin_voucher_list') }}">Voucher</a>
+      <a href="{{ url_for('admin_combo_list') }}">Combo</a>
+      <a href="{{ url_for('admin_flash_sale_list') }}">Flash Sale</a>
+      <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
+    </nav>
+  </header>
+  <main class="admin-main">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      <div class="flash">{% for m in messages %}<p>{{ m }}</p>{% endfor %}</div>
+      {% endif %}
+    {% endwith %}
+    <h1>Flash Sale</h1>
+    <p class="variant-hint">Mỗi đợt Flash Sale tối đa {{ max_items }} sản phẩm.</p>
+
+    <h2 class="admin-section-title">Tạo đợt Flash Sale mới</h2>
+    <form method="post" action="{{ url_for('admin_flash_sale_add') }}" class="admin-form">
+      <label>Tên đợt</label>
+      <input type="text" name="name" placeholder="VD: Flash Sale 12.7">
+      <div class="form-row">
+        <div>
+          <label>Bắt đầu *</label>
+          <input type="datetime-local" name="start_at" required>
+        </div>
+        <div>
+          <label>Kết thúc *</label>
+          <input type="datetime-local" name="end_at" required>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Tạo Đợt Flash Sale</button>
+    </form>
+
+    <h2 class="admin-section-title">Các đợt Flash Sale ({{ sales|length }})</h2>
+    {% if not sales %}
+    <p class="variant-empty-note">Chưa có đợt Flash Sale nào.</p>
+    {% endif %}
+    {% for s in sales %}
+    {% set items = sale_items.get(s['id'], []) %}
+    <div class="shop-block-admin-item" style="flex-direction:column; align-items:stretch;">
+      <div class="admin-toolbar">
+        <div>
+          <strong>{{ s['name'] }}</strong>
+          <span class="review-date">{{ s['start_at'] }} → {{ s['end_at'] }} · {{ 'Đang bật' if s['active'] else 'Đã tắt' }} · {{ items|length }}/{{ max_items }} sản phẩm</span>
+        </div>
+        <div class="admin-row-actions">
+          <a href="{{ url_for('admin_flash_sale_toggle', sale_id=s['id']) }}">{{ 'Tắt' if s['active'] else 'Bật' }}</a>
+          · <a href="{{ url_for('admin_flash_sale_delete', sale_id=s['id']) }}" class="delete-link" onclick="return confirm('Xoá đợt Flash Sale này?')">Xoá</a>
+        </div>
+      </div>
+
+      <table class="admin-table">
+        <tr><th>Sản phẩm</th><th>Giá thường</th><th>Giá sale</th><th>Số suất</th><th>Đã bán</th><th></th></tr>
+        {% for it in items %}
+        <tr>
+          <td>{{ it['product_name'] }}</td>
+          <td>{{ "{:,.0f}".format(it['normal_price']) }}đ</td>
+          <td>{{ "{:,.0f}".format(it['sale_price']) }}đ</td>
+          <td>{{ it['stock_limit'] }}</td>
+          <td>{{ it['sold_in_sale'] }}</td>
+          <td><a href="{{ url_for('admin_flash_sale_item_delete', item_id=it['id']) }}" class="delete-link" onclick="return confirm('Bỏ sản phẩm này khỏi đợt sale?')">Xoá</a></td>
+        </tr>
+        {% endfor %}
+      </table>
+
+      {% if items|length < max_items %}
+      <form method="post" action="{{ url_for('admin_flash_sale_item_add', sale_id=s['id']) }}" class="admin-form">
+        <div class="form-row">
+          <div>
+            <label>Sản phẩm</label>
+            <select name="product_id" required>
+              {% for prod in products %}
+              <option value="{{ prod['id'] }}">{{ prod['name'] }} ({{ "{:,.0f}".format(prod['price']) }}đ)</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>Giá sale *</label>
+            <input type="number" name="sale_price" min="1" required>
+          </div>
+          <div>
+            <label>Số suất *</label>
+            <input type="number" name="stock_limit" min="1" required>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-outline">+ Thêm sản phẩm vào đợt sale</button>
+      </form>
+      {% else %}
+      <p class="variant-empty-note">Đã đủ {{ max_items }} sản phẩm cho đợt này.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </main>
+</body>
+</html>

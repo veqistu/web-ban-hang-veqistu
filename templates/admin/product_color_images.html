@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Ảnh theo màu — {{ product['name'] }} | {{ shop_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="admin-header">
+    <strong>{{ shop_name }} — Quản trị</strong>
+    <nav>
+      <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
+      <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
+      <a href="{{ url_for('admin_shop_decoration') }}">Trang trí Shop</a>
+      <a href="{{ url_for('admin_voucher_list') }}">Voucher</a>
+      <a href="{{ url_for('admin_combo_list') }}">Combo</a>
+      <a href="{{ url_for('admin_flash_sale_list') }}">Flash Sale</a>
+      <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
+    </nav>
+  </header>
+  <main class="admin-main">
+    <p><a href="{{ url_for('admin_dashboard') }}">&larr; Quay lại danh sách sản phẩm</a></p>
+    <h1>Ảnh theo màu sắc: {{ product['name'] }}</h1>
+    <p class="variant-hint">
+      Mỗi màu có thể gán 1 ảnh riêng — khi khách chọn màu đó ở trang sản phẩm, ảnh chính sẽ tự
+      đổi sang ảnh này. Màu chưa có ảnh riêng vẫn dùng ảnh chính mặc định của sản phẩm.
+      Màu hiện có: <strong>{{ colors|join(', ') if colors else '(chưa khai báo màu ở trang Sửa sản phẩm)' }}</strong>
+    </p>
+
+    {% if colors %}
+    <h2 class="admin-section-title">Thêm / thay ảnh cho 1 màu</h2>
+    <form method="post" action="{{ url_for('admin_color_image_add', product_id=product['id']) }}"
+          enctype="multipart/form-data" class="admin-form">
+      <label>Màu sắc</label>
+      <select name="color">
+        {% for c in colors %}
+        <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+
+      <label>Ảnh đại diện cho màu này</label>
+      <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif" required>
+
+      <button type="submit" class="btn btn-primary">Lưu ảnh</button>
+    </form>
+    {% endif %}
+
+    <h2 class="admin-section-title">Ảnh đã gán ({{ color_images|length }})</h2>
+    {% if not color_images %}
+    <p class="variant-empty-note">Chưa có màu nào được gán ảnh riêng.</p>
+    {% endif %}
+    <div class="shop-block-admin-list">
+      {% for ci in color_images %}
+      <div class="shop-block-admin-item">
+        <div class="shop-block-admin-preview">
+          <img src="{{ url_for('static', filename=ci['image_path']) }}" alt="">
+        </div>
+        <div class="shop-block-admin-info">
+          <strong>{{ ci['color'] }}</strong>
+        </div>
+        <div class="shop-block-admin-actions">
+          <a href="{{ url_for('admin_color_image_delete', image_id=ci['id']) }}" class="delete-link" onclick="return confirm('Xoá ảnh của màu này?')">Xoá</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </main>
+</body>
+</html>

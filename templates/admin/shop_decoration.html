@@ -12,6 +12,9 @@
       <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
       <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
       <a href="{{ url_for('admin_shop_decoration') }}">Trang trí Shop</a>
+      <a href="{{ url_for('admin_voucher_list') }}">Voucher</a>
+      <a href="{{ url_for('admin_combo_list') }}">Combo</a>
+      <a href="{{ url_for('admin_flash_sale_list') }}">Flash Sale</a>
       <a href="{{ url_for('shop_home') }}" target="_blank">Xem trang chủ Shop</a>
       <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
     </nav>
@@ -47,11 +50,33 @@
       <label>Đường dẫn khi bấm vào (tuỳ chọn)</label>
       <input type="text" name="link_url" placeholder="{{ url_for('index') }}">
 
+      <label>Tỉ lệ khung ảnh banner</label>
+      <div class="ratio-options">
+        <label class="ratio-chip"><input type="radio" name="aspect_ratio_preset" value="2:1" checked> 2:1</label>
+        <label class="ratio-chip"><input type="radio" name="aspect_ratio_preset" value="16:9"> 16:9</label>
+        <label class="ratio-chip"><input type="radio" name="aspect_ratio_preset" value="1:1"> 1:1</label>
+        <label class="ratio-chip"><input type="radio" name="aspect_ratio_preset" value="custom" id="ratio-custom-radio"> Tuỳ chỉnh</label>
+      </div>
+      <div class="form-row" id="custom-ratio-row" style="display:none;">
+        <div><input type="number" name="ratio_w" placeholder="Rộng" min="1" value="2"></div>
+        <div><input type="number" name="ratio_h" placeholder="Cao" min="1" value="1"></div>
+      </div>
+
       <label>Hình ảnh minh hoạ (banner nhiều hình có thể chọn nhiều ảnh)</label>
       <input type="file" name="images" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
 
       <button type="submit" class="btn btn-primary">Thêm khối</button>
     </form>
+
+    <script>
+      var ratioRadios = document.querySelectorAll('input[name="aspect_ratio_preset"]');
+      var customRow = document.getElementById('custom-ratio-row');
+      ratioRadios.forEach(function (r) {
+        r.addEventListener('change', function () {
+          customRow.style.display = document.getElementById('ratio-custom-radio').checked ? 'flex' : 'none';
+        });
+      });
+    </script>
 
     <h2 class="admin-section-title">Các khối hiện có ({{ blocks|length }})</h2>
     {% if not blocks %}
@@ -71,6 +96,7 @@
           <strong>{{ b['title'] or '(không có tiêu đề)' }}</strong>
           <span class="review-date">
             {{ {'banner_single': 'Banner 1 hình', 'banner_multi': 'Banner nhiều hình', 'text': 'Văn bản'}[b['block_type']] }}
+            {% if b['block_type'] != 'text' %}· Tỉ lệ {{ b['aspect_ratio'] or '2:1' }}{% endif %}
             · Thứ tự {{ b['display_order'] }} · {{ 'Đang hiện' if b['active'] else 'Đã ẩn' }}
           </span>
         </div>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Mô tả — {{ product['name'] }} | {{ shop_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="admin-header">
+    <strong>{{ shop_name }} — Quản trị</strong>
+    <nav>
+      <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
+      <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
+      <a href="{{ url_for('admin_shop_decoration') }}">Trang trí Shop</a>
+      <a href="{{ url_for('admin_voucher_list') }}">Voucher</a>
+      <a href="{{ url_for('admin_combo_list') }}">Combo</a>
+      <a href="{{ url_for('admin_flash_sale_list') }}">Flash Sale</a>
+      <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
+    </nav>
+  </header>
+  <main class="admin-main">
+    <p><a href="{{ url_for('admin_dashboard') }}">&larr; Quay lại danh sách sản phẩm</a></p>
+    <h1>Mô tả chi tiết: {{ product['name'] }}</h1>
+    <p class="variant-hint">
+      Mô tả ngắn ("Mô tả sản phẩm" ở trang Sửa sản phẩm) vẫn hiện đầu tiên. Các khối bên dưới
+      cho phép chèn thêm đoạn chữ và ảnh xen kẽ nhau (giống mô tả sản phẩm thật trên Shopee) —
+      sắp xếp thứ tự bằng nút lên/xuống.
+    </p>
+
+    <h2 class="admin-section-title">Thêm khối mới</h2>
+    <form method="post" action="{{ url_for('admin_description_block_add', product_id=product['id']) }}"
+          enctype="multipart/form-data" class="admin-form">
+      <label>Loại khối</label>
+      <select name="block_type" id="desc-block-type-select">
+        <option value="text">Đoạn chữ</option>
+        <option value="image">Ảnh</option>
+      </select>
+
+      <div id="desc-text-row">
+        <label>Nội dung</label>
+        <textarea name="content" rows="4" placeholder="Nhập đoạn mô tả..."></textarea>
+      </div>
+
+      <div id="desc-image-row" style="display:none;">
+        <label>Ảnh</label>
+        <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif">
+      </div>
+
+      <button type="submit" class="btn btn-primary">Thêm khối</button>
+    </form>
+
+    <script>
+      var descTypeSelect = document.getElementById('desc-block-type-select');
+      var descTextRow = document.getElementById('desc-text-row');
+      var descImageRow = document.getElementById('desc-image-row');
+      descTypeSelect.addEventListener('change', function () {
+        var isImage = descTypeSelect.value === 'image';
+        descTextRow.style.display = isImage ? 'none' : 'block';
+        descImageRow.style.display = isImage ? 'block' : 'none';
+      });
+    </script>
+
+    <h2 class="admin-section-title">Các khối hiện có ({{ blocks|length }})</h2>
+    {% if not blocks %}
+    <p class="variant-empty-note">Chưa có khối mô tả nào. Thêm khối đầu tiên ở trên.</p>
+    {% endif %}
+    <div class="shop-block-admin-list">
+      {% for b in blocks %}
+      <div class="shop-block-admin-item">
+        <div class="shop-block-admin-preview">
+          {% if b['block_type'] == 'image' and b['image_path'] %}
+          <img src="{{ url_for('static', filename=b['image_path']) }}" alt="">
+          {% else %}
+          <span class="mini-thumb" style="background:#eee;color:#999;display:flex;align-items:center;justify-content:center;font-size:11px;">Chữ</span>
+          {% endif %}
+        </div>
+        <div class="shop-block-admin-info">
+          <strong>{{ 'Đoạn chữ' if b['block_type'] == 'text' else 'Ảnh' }}</strong>
+          <span class="review-date">
+            {% if b['block_type'] == 'text' %}{{ b['content'][:80] }}{% if b['content']|length > 80 %}...{% endif %}{% endif %}
+            Thứ tự {{ b['display_order'] }}
+          </span>
+        </div>
+        <div class="shop-block-admin-actions">
+          <a href="{{ url_for('admin_description_block_move', block_id=b['id'], direction='up') }}">↑</a>
+          <a href="{{ url_for('admin_description_block_move', block_id=b['id'], direction='down') }}">↓</a>
+          <a href="{{ url_for('admin_description_block_delete', block_id=b['id']) }}" class="delete-link" onclick="return confirm('Xoá khối này?')">Xoá</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </main>
+</body>
+</html>

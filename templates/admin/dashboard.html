@@ -12,6 +12,9 @@
       <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
       <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
       <a href="{{ url_for('admin_shop_decoration') }}">Trang trí Shop</a>
+      <a href="{{ url_for('admin_voucher_list') }}">Voucher</a>
+      <a href="{{ url_for('admin_combo_list') }}">Combo</a>
+      <a href="{{ url_for('admin_flash_sale_list') }}">Flash Sale</a>
       <a href="{{ url_for('index') }}" target="_blank">Xem trang web</a>
       <a href="{{ url_for('shop_home') }}" target="_blank">Xem trang chủ Shop</a>
       <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
@@ -43,13 +46,15 @@
         <td>{{ "{:,.0f}".format(p['price']) }}đ</td>
         <td>{{ p['stock'] }}</td>
         <td>{{ 'Đang bán' if p['active'] else 'Đã ẩn' }}</td>
-        <td>
+        <td class="admin-row-actions">
           <a href="{{ url_for('admin_product_edit', product_id=p['id']) }}">Sửa</a>
           · <a href="{{ url_for('admin_product_reviews', product_id=p['id']) }}">Đánh giá</a>
+          · <a href="{{ url_for('admin_product_description', product_id=p['id']) }}">Mô tả</a>
+          · <a href="{{ url_for('admin_product_color_images', product_id=p['id']) }}">Ảnh màu</a><br>
           {% if p['active'] %}
-          · <a href="{{ url_for('admin_product_delete', product_id=p['id']) }}" onclick="return confirm('Ẩn sản phẩm này khỏi web?')">Ẩn</a>
+          <a href="{{ url_for('admin_product_delete', product_id=p['id']) }}" onclick="return confirm('Ẩn sản phẩm này khỏi web?')">Ẩn</a>
           {% else %}
-          · <a href="{{ url_for('admin_product_delete', product_id=p['id']) }}" onclick="return confirm('Bỏ ẩn — hiện sản phẩm này trở lại trên web?')">Bỏ ẩn</a>
+          <a href="{{ url_for('admin_product_delete', product_id=p['id']) }}" onclick="return confirm('Bỏ ẩn — hiện sản phẩm này trở lại trên web?')">Bỏ ẩn</a>
           {% endif %}
           · <a href="{{ url_for('admin_product_delete_permanent', product_id=p['id']) }}" class="delete-link" onclick="return confirm('Xoá VĨNH VIỄN sản phẩm này? Không thể khôi phục lại được.')">Xoá</a>
         </td>

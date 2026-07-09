@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Combo Khuyến Mãi | {{ shop_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="admin-header">
+    <strong>{{ shop_name }} — Quản trị</strong>
+    <nav>
+      <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
+      <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
+      <a href="{{ url_for('admin_shop_decoration') }}">Trang trí Shop</a>
+      <a href="{{ url_for('admin_voucher_list') }}">Voucher</a>
+      <a href="{{ url_for('admin_combo_list') }}">Combo</a>
+      <a href="{{ url_for('admin_flash_sale_list') }}">Flash Sale</a>
+      <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
+    </nav>
+  </header>
+  <main class="admin-main">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      <div class="flash">{% for m in messages %}<p>{{ m }}</p>{% endfor %}</div>
+      {% endif %}
+    {% endwith %}
+    <h1>Combo Khuyến Mãi</h1>
+    <p class="variant-hint">
+      Mua đủ số lượng tối thiểu sẽ được giảm ngay 1 khoản tiền cố định trên tổng đơn.
+      Bỏ trống sản phẩm = áp dụng cho TOÀN SHOP (tính tổng số lượng mọi sản phẩm trong giỏ).
+    </p>
+
+    <h2 class="admin-section-title">Tạo combo mới</h2>
+    <form method="post" action="{{ url_for('admin_combo_add') }}" class="admin-form">
+      <label>Tên combo</label>
+      <input type="text" name="name" placeholder="VD: Mua 2 giảm 20k">
+
+      <div class="form-row">
+        <div>
+          <label>Số lượng tối thiểu *</label>
+          <input type="number" name="min_quantity" min="2" value="2" required>
+        </div>
+        <div>
+          <label>Số tiền giảm *</label>
+          <input type="number" name="discount_amount" min="1" required>
+        </div>
+      </div>
+
+      <label>Sản phẩm áp dụng (bỏ trống = áp dụng toàn shop)</label>
+      <div class="product-picker">
+        {% for prod in products %}
+        <label class="variant-chip"><input type="checkbox" name="product_ids" value="{{ prod['id'] }}"> <span>{{ prod['name'] }}</span></label>
+        {% endfor %}
+      </div>
+
+      <button type="submit" class="btn btn-primary">Tạo Combo</button>
+    </form>
+
+    <h2 class="admin-section-title">Danh sách combo ({{ combos|length }})</h2>
+    {% if not combos %}
+    <p class="variant-empty-note">Chưa có combo nào.</p>
+    {% endif %}
+    <table class="admin-table">
+      <tr><th>Tên</th><th>Điều kiện</th><th>Giảm</th><th>Phạm vi</th><th>Trạng thái</th><th></th></tr>
+      {% for c in combos %}
+      <tr>
+        <td><strong>{{ c['name'] }}</strong></td>
+        <td>Mua từ {{ c['min_quantity'] }} sản phẩm</td>
+        <td>{{ "{:,.0f}".format(c['discount_amount']) }}đ</td>
+        <td>{% if c['scope'] == 'shop' %}Toàn shop{% else %}{{ combo_products.get(c['id'], [])|length }} sản phẩm{% endif %}</td>
+        <td>{{ 'Đang bật' if c['active'] else 'Đã tắt' }}</td>
+        <td class="admin-row-actions">
+          <a href="{{ url_for('admin_combo_toggle', combo_id=c['id']) }}">{{ 'Tắt' if c['active'] else 'Bật' }}</a>
+          · <a href="{{ url_for('admin_combo_delete', combo_id=c['id']) }}" class="delete-link" onclick="return confirm('Xoá combo này?')">Xoá</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </main>
+</body>
+</html>

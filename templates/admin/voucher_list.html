@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Voucher | {{ shop_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="admin-header">
+    <strong>{{ shop_name }} — Quản trị</strong>
+    <nav>
+      <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
+      <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
+      <a href="{{ url_for('admin_shop_decoration') }}">Trang trí Shop</a>
+      <a href="{{ url_for('admin_voucher_list') }}">Voucher</a>
+      <a href="{{ url_for('admin_combo_list') }}">Combo</a>
+      <a href="{{ url_for('admin_flash_sale_list') }}">Flash Sale</a>
+      <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
+    </nav>
+  </header>
+  <main class="admin-main">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      <div class="flash">{% for m in messages %}<p>{{ m }}</p>{% endfor %}</div>
+      {% endif %}
+    {% endwith %}
+    <h1>Mã Giảm Giá (Voucher)</h1>
+    <p class="variant-hint">
+      Nếu KHÔNG chọn sản phẩm nào bên dưới, mã sẽ áp dụng cho TOÀN SHOP.
+      Nếu có chọn, mã chỉ áp dụng cho các sản phẩm đã chọn.
+    </p>
+
+    <h2 class="admin-section-title">Tạo mã voucher mới</h2>
+    <form method="post" action="{{ url_for('admin_voucher_add') }}" class="admin-form">
+      <div class="form-row">
+        <div>
+          <label>Mã voucher *</label>
+          <input type="text" name="code" placeholder="VD: ROBO50" maxlength="20" required style="text-transform:uppercase;">
+        </div>
+        <div>
+          <label>Tên chương trình</label>
+          <input type="text" name="name" placeholder="VD: Giảm giá khai trương">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Loại giảm giá</label>
+          <select name="discount_type">
+            <option value="amount">Theo số tiền (đ)</option>
+            <option value="percent">Theo phần trăm (%)</option>
+          </select>
+        </div>
+        <div>
+          <label>Mức giảm *</label>
+          <input type="number" name="discount_value" min="1" required>
+        </div>
+        <div>
+          <label>Giảm tối đa (chỉ áp dụng cho loại %)</label>
+          <input type="number" name="max_discount_amount" min="0" placeholder="Không giới hạn">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Giá trị đơn hàng tối thiểu</label>
+          <input type="number" name="min_order_value" min="0" value="0">
+        </div>
+        <div>
+          <label>Tổng lượt sử dụng tối đa</label>
+          <input type="number" name="total_usage_limit" min="1" placeholder="Không giới hạn">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Bắt đầu sử dụng</label>
+          <input type="datetime-local" name="start_at">
+        </div>
+        <div>
+          <label>Kết thúc sử dụng</label>
+          <input type="datetime-local" name="end_at">
+        </div>
+      </div>
+
+      <label>Sản phẩm được áp dụng (bỏ trống = áp dụng toàn shop)</label>
+      <div class="product-picker">
+        {% for prod in products %}
+        <label class="variant-chip"><input type="checkbox" name="product_ids" value="{{ prod['id'] }}"> <span>{{ prod['name'] }}</span></label>
+        {% endfor %}
+      </div>
+
+      <button type="submit" class="btn btn-primary">Tạo Mã Voucher</button>
+    </form>
+
+    <h2 class="admin-section-title">Danh sách voucher ({{ vouchers|length }})</h2>
+    {% if not vouchers %}
+    <p class="variant-empty-note">Chưa có voucher nào.</p>
+    {% endif %}
+    <table class="admin-table">
+      <tr><th>Mã</th><th>Tên</th><th>Giảm</th><th>Đơn tối thiểu</th><th>Đã dùng</th><th>Phạm vi</th><th>Trạng thái</th><th></th></tr>
+      {% for v in vouchers %}
+      <tr>
+        <td><strong>{{ v['code'] }}</strong></td>
+        <td>{{ v['name'] or '' }}</td>
+        <td>{{ v['discount_value'] }}{{ '%' if v['discount_type'] == 'percent' else 'đ' }}</td>
+        <td>{{ "{:,.0f}".format(v['min_order_value'] or 0) }}đ</td>
+        <td>{{ v['used_count'] }}{{ '/' ~ v['total_usage_limit'] if v['total_usage_limit'] else '' }}</td>
+        <td>
+          {% if v['scope'] == 'shop' %}Toàn shop{% else %}{{ voucher_products.get(v['id'], [])|length }} sản phẩm{% endif %}
+        </td>
+        <td>{{ 'Đang bật' if v['active'] else 'Đã tắt' }}</td>
+        <td class="admin-row-actions">
+          <a href="{{ url_for('admin_voucher_toggle', voucher_id=v['id']) }}">{{ 'Tắt' if v['active'] else 'Bật' }}</a>
+          · <a href="{{ url_for('admin_voucher_delete', voucher_id=v['id']) }}" class="delete-link" onclick="return confirm('Xoá voucher này?')">Xoá</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </main>
+</body>
+</html>
