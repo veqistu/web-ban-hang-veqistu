@@ -11,11 +11,18 @@
     <nav>
       <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
       <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
+      <a href="{{ url_for('admin_shop_decoration') }}">Trang trí Shop</a>
       <a href="{{ url_for('index') }}" target="_blank">Xem trang web</a>
+      <a href="{{ url_for('shop_home') }}" target="_blank">Xem trang chủ Shop</a>
       <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
     </nav>
   </header>
   <main class="admin-main">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      <div class="flash">{% for m in messages %}<p>{{ m }}</p>{% endfor %}</div>
+      {% endif %}
+    {% endwith %}
     <div class="admin-toolbar">
       <h1>Sản phẩm ({{ products|length }})</h1>
       <a href="{{ url_for('admin_product_new') }}" class="btn btn-primary">+ Thêm sản phẩm</a>
@@ -24,7 +31,13 @@
       <tr><th></th><th>Tên</th><th>Danh mục</th><th>Giá</th><th>Tồn kho</th><th>Trạng thái</th><th></th></tr>
       {% for p in products %}
       <tr>
-        <td><span class="mini-thumb" style="background:{{ p['color_hex'] }}"></span></td>
+        <td>
+          {% if p['image_path'] %}
+          <img class="mini-thumb" src="{{ url_for('static', filename=p['image_path']) }}" alt="">
+          {% else %}
+          <span class="mini-thumb" style="background:{{ p['color_hex'] }}"></span>
+          {% endif %}
+        </td>
         <td>{{ p['name'] }}</td>
         <td>{{ p['category_name'] }}</td>
         <td>{{ "{:,.0f}".format(p['price']) }}đ</td>
@@ -32,7 +45,13 @@
         <td>{{ 'Đang bán' if p['active'] else 'Đã ẩn' }}</td>
         <td>
           <a href="{{ url_for('admin_product_edit', product_id=p['id']) }}">Sửa</a>
+          · <a href="{{ url_for('admin_product_reviews', product_id=p['id']) }}">Đánh giá</a>
+          {% if p['active'] %}
           · <a href="{{ url_for('admin_product_delete', product_id=p['id']) }}" onclick="return confirm('Ẩn sản phẩm này khỏi web?')">Ẩn</a>
+          {% else %}
+          · <a href="{{ url_for('admin_product_delete', product_id=p['id']) }}" onclick="return confirm('Bỏ ẩn — hiện sản phẩm này trở lại trên web?')">Bỏ ẩn</a>
+          {% endif %}
+          · <a href="{{ url_for('admin_product_delete_permanent', product_id=p['id']) }}" class="delete-link" onclick="return confirm('Xoá VĨNH VIỄN sản phẩm này? Không thể khôi phục lại được.')">Xoá</a>
         </td>
       </tr>
       {% endfor %}

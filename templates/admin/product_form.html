@@ -11,6 +11,7 @@
     <nav>
       <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
       <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
+      <a href="{{ url_for('admin_shop_decoration') }}">Trang trí Shop</a>
       <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
     </nav>
   </header>
@@ -28,6 +29,15 @@
       </div>
       {% endif %}
       <input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif">
+
+      <label>Video sản phẩm (tuỳ chọn — hiện đầu tiên trong khung ảnh ở trang sản phẩm, giống Shopee)</label>
+      {% if p and p['video_path'] %}
+      <div class="current-image-preview">
+        <video src="{{ url_for('static', filename=p['video_path']) }}" controls></video>
+        <span>Video hiện tại — chọn video mới bên dưới nếu muốn thay đổi.</span>
+      </div>
+      {% endif %}
+      <input type="file" name="video" accept="video/mp4,video/webm,video/quicktime,video/x-matroska">
 
       <label>Ảnh thêm cho phần mô tả (chọn được nhiều ảnh)</label>
       {% if p and p['gallery_images'] %}

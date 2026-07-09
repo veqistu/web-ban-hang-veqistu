@@ -10,6 +10,7 @@
   <header class="topbar">
     <div class="topbar-inner">
       <a href="{{ url_for('index') }}" class="logo">{{ shop_name }}</a>
+      <a href="{{ url_for('shop_home') }}" class="shop-home-link">Trang chủ Shop</a>
       <form class="search" action="{{ url_for('index') }}" method="get">
         <input type="text" name="q" placeholder="Tìm sản phẩm trong shop...">
         <button type="submit">🔍</button>

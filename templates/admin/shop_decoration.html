@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Trang trí Shop | {{ shop_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="admin-header">
+    <strong>{{ shop_name }} — Quản trị</strong>
+    <nav>
+      <a href="{{ url_for('admin_dashboard') }}">Sản phẩm</a>
+      <a href="{{ url_for('admin_orders') }}">Đơn hàng</a>
+      <a href="{{ url_for('admin_shop_decoration') }}">Trang trí Shop</a>
+      <a href="{{ url_for('shop_home') }}" target="_blank">Xem trang chủ Shop</a>
+      <a href="{{ url_for('admin_logout') }}">Đăng xuất</a>
+    </nav>
+  </header>
+  <main class="admin-main">
+    <h1>Trang trí Shop — Trang chủ của Shop</h1>
+    <p class="variant-hint">
+      Sắp xếp các khối banner/văn bản sẽ hiển thị trên trang chủ shop (giống công cụ
+      "Trang Trí Shop" của Shopee Seller Center). Ảnh dùng tạm là ảnh minh hoạ —
+      khi có ảnh sản phẩm thật bạn upload thay thế sau.
+    </p>
+
+    <h2 class="admin-section-title">Thêm khối mới</h2>
+    <form method="post" action="{{ url_for('admin_shop_block_add') }}" enctype="multipart/form-data" class="admin-form">
+      <label>Loại khối</label>
+      <select name="block_type" id="block-type-select">
+        <option value="banner_single">Banner — 1 hình ảnh</option>
+        <option value="banner_multi">Banner — Nhiều hình ảnh</option>
+        <option value="text">Văn bản</option>
+      </select>
+
+      <div class="form-row">
+        <div>
+          <label>Tiêu đề</label>
+          <input type="text" name="title" placeholder="VD: VEQISTU — Local Brand Việt Nam">
+        </div>
+        <div>
+          <label>Mô tả phụ</label>
+          <input type="text" name="subtitle" placeholder="VD: Vibe Studio | Girly | T-Shirt">
+        </div>
+      </div>
+
+      <label>Đường dẫn khi bấm vào (tuỳ chọn)</label>
+      <input type="text" name="link_url" placeholder="{{ url_for('index') }}">
+
+      <label>Hình ảnh minh hoạ (banner nhiều hình có thể chọn nhiều ảnh)</label>
+      <input type="file" name="images" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
+
+      <button type="submit" class="btn btn-primary">Thêm khối</button>
+    </form>
+
+    <h2 class="admin-section-title">Các khối hiện có ({{ blocks|length }})</h2>
+    {% if not blocks %}
+    <p class="variant-empty-note">Chưa có khối trang trí nào. Thêm khối đầu tiên ở trên.</p>
+    {% endif %}
+    <div class="shop-block-admin-list">
+      {% for b in blocks %}
+      <div class="shop-block-admin-item {{ '' if b['active'] else 'shop-block-inactive' }}">
+        <div class="shop-block-admin-preview">
+          {% if b['image_path'] %}
+          <img src="{{ url_for('static', filename=b['image_path'].split(',')[0]) }}" alt="">
+          {% else %}
+          <span class="mini-thumb" style="background:#ee4d2d"></span>
+          {% endif %}
+        </div>
+        <div class="shop-block-admin-info">
+          <strong>{{ b['title'] or '(không có tiêu đề)' }}</strong>
+          <span class="review-date">
+            {{ {'banner_single': 'Banner 1 hình', 'banner_multi': 'Banner nhiều hình', 'text': 'Văn bản'}[b['block_type']] }}
+            · Thứ tự {{ b['display_order'] }} · {{ 'Đang hiện' if b['active'] else 'Đã ẩn' }}
+          </span>
+        </div>
+        <div class="shop-block-admin-actions">
+          <a href="{{ url_for('admin_shop_block_move', block_id=b['id'], direction='up') }}">↑</a>
+          <a href="{{ url_for('admin_shop_block_move', block_id=b['id'], direction='down') }}">↓</a>
+          <a href="{{ url_for('admin_shop_block_toggle', block_id=b['id']) }}">{{ 'Ẩn' if b['active'] else 'Hiện' }}</a>
+          <a href="{{ url_for('admin_shop_block_delete', block_id=b['id']) }}" onclick="return confirm('Xoá khối này?')">Xoá</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </main>
+</body>
+</html>

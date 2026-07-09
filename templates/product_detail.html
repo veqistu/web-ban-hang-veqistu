@@ -5,23 +5,55 @@
 
 <div class="product-detail">
   <div class="gallery">
-    <div class="gallery-main" style="background:{{ p['color_hex'] }}">
-      {% if p['image_path'] %}
-      <img src="{{ url_for('static', filename=p['image_path']) }}" alt="{{ p['name'] }}">
+    <div class="gallery-main" id="gallery-main" style="background:{{ p['color_hex'] }}">
+      {% if p['video_path'] %}
+      <video id="gallery-main-video" controls poster="{{ url_for('static', filename=p['image_path']) if p['image_path'] else '' }}">
+        <source src="{{ url_for('static', filename=p['video_path']) }}">
+      </video>
+      {% elif p['image_path'] %}
+      <img id="gallery-main-image" class="zoomable" data-group="main" data-index="0" src="{{ url_for('static', filename=p['image_path']) }}" alt="{{ p['name'] }}">
       {% else %}
       <span>{{ p['name'][:2] }}</span>
       {% endif %}
     </div>
-    {% if p['gallery_images'] %}
-    <div class="gallery-thumbs">
+    {% if p['video_path'] or p['image_path'] or p['gallery_images'] %}
+    <div class="gallery-thumbs" id="gallery-thumbs">
+      {% if p['video_path'] %}
+      <div class="gallery-thumb gallery-thumb-video active" data-type="video"
+           data-src="{{ url_for('static', filename=p['video_path']) }}"
+           data-poster="{{ url_for('static', filename=p['image_path']) if p['image_path'] else '' }}">
+        {% if p['image_path'] %}<img src="{{ url_for('static', filename=p['image_path']) }}" alt="{{ p['name'] }}">{% endif %}
+        <span class="play-icon">▶</span>
+      </div>
+      {% endif %}
+      {% if p['image_path'] %}
+      <div class="gallery-thumb {{ 'active' if not p['video_path'] }}" data-type="image" data-group="main" data-index="0"
+           data-src="{{ url_for('static', filename=p['image_path']) }}">
+        <img src="{{ url_for('static', filename=p['image_path']) }}" alt="{{ p['name'] }}">
+      </div>
+      {% endif %}
+      {% if p['gallery_images'] %}
       {% for img in p['gallery_images'].split(',') %}
-      <img src="{{ url_for('static', filename=img) }}" alt="{{ p['name'] }}">
+      <div class="gallery-thumb" data-type="image" data-group="main" data-index="{{ loop.index }}" data-src="{{ url_for('static', filename=img) }}">
+        <img src="{{ url_for('static', filename=img) }}" alt="{{ p['name'] }}">
+      </div>
       {% endfor %}
+      {% endif %}
     </div>
     {% endif %}
-    {% if not p['image_path'] %}
+    {% if not p['image_path'] and not p['video_path'] %}
     <p class="gallery-note">Ảnh minh hoạ — upload ảnh thật qua trang quản trị.</p>
     {% endif %}
+  </div>
+
+  <div class="lightbox-overlay" id="lightbox-overlay">
+    <div class="lightbox-content">
+      <span class="lightbox-close" id="lightbox-close">&times;</span>
+      <button type="button" class="lightbox-arrow lightbox-prev" id="lightbox-prev" aria-label="Ảnh trước">&#10094;</button>
+      <img id="lightbox-img" src="" alt="{{ p['name'] }}">
+      <button type="button" class="lightbox-arrow lightbox-next" id="lightbox-next" aria-label="Ảnh sau">&#10095;</button>
+      <span class="lightbox-counter" id="lightbox-counter"></span>
+    </div>
   </div>
 
   <div class="detail-info">
@@ -80,6 +112,46 @@
   </div>
 </div>
 
+<div class="review-box">
+  <h2>ĐÁNH GIÁ SẢN PHẨM</h2>
+  <div class="review-summary">
+    <span class="review-summary-score">{{ review_avg if review_count else p['rating'] }}</span>
+    <span class="review-summary-stars">
+      {% set full_stars = review_avg|round(0, 'floor')|int if review_count else 5 %}
+      {{ '★' * full_stars }}{{ '☆' * (5 - full_stars) }}
+    </span>
+    <span class="review-summary-count">{{ review_count }} đánh giá</span>
+  </div>
+
+  {% if reviews %}
+  <div class="review-list">
+    {% for r in reviews %}
+    <div class="review-item">
+      <div class="review-item-head">
+        <strong>{{ r['reviewer_name'] }}</strong>
+        <span class="review-stars">{{ '★' * r['rating'] }}{{ '☆' * (5 - r['rating']) }}</span>
+        <span class="review-date">{{ r['created_at'] }}</span>
+      </div>
+      {% if r['comment'] %}<p class="review-comment">{{ r['comment'] }}</p>{% endif %}
+      {% if r['images'] %}
+      <div class="review-images">
+        {% for img in r['images'].split(',') %}
+        <img class="zoomable" data-group="review-{{ r['id'] }}" data-index="{{ loop.index0 }}"
+             src="{{ url_for('static', filename=img) }}" alt="Ảnh đánh giá của {{ r['reviewer_name'] }}">
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if r['video_path'] %}
+      <video class="review-video" controls src="{{ url_for('static', filename=r['video_path']) }}"></video>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="review-empty-note">Chưa có đánh giá nào cho sản phẩm này. Hãy là người đầu tiên đánh giá sau khi nhận hàng!</p>
+  {% endif %}
+</div>
+
 <div class="spec-box">
   <h2>CHI TIẾT SẢN PHẨM</h2>
   <table class="spec-table">
@@ -100,7 +172,7 @@
   {% if p['gallery_images'] %}
   <div class="description-gallery">
     {% for img in p['gallery_images'].split(',') %}
-    <img src="{{ url_for('static', filename=img) }}" alt="{{ p['name'] }}">
+    <img class="zoomable" data-group="desc" data-index="{{ loop.index0 }}" src="{{ url_for('static', filename=img) }}" alt="{{ p['name'] }}">
     {% endfor %}
   </div>
   {% endif %}
@@ -173,5 +245,102 @@
     el.addEventListener('change', updateVariantDisplay);
   });
   updateVariantDisplay();
+
+  // ---- Gallery: hover trên thumbnail để đổi ảnh/video chính ----
+  document.querySelectorAll('#gallery-thumbs .gallery-thumb').forEach(function (thumb) {
+    thumb.addEventListener('mouseenter', function () {
+      var mainEl = document.getElementById('gallery-main');
+      if (!mainEl) return;
+      var type = thumb.getAttribute('data-type');
+      if (type === 'video') {
+        mainEl.innerHTML = '<video id="gallery-main-video" controls poster="' + (thumb.getAttribute('data-poster') || '') + '">' +
+          '<source src="' + thumb.getAttribute('data-src') + '"></video>';
+      } else {
+        mainEl.innerHTML = '<img id="gallery-main-image" class="zoomable" data-group="main" data-index="' +
+          thumb.getAttribute('data-index') + '" src="' + thumb.getAttribute('data-src') + '" alt="">';
+      }
+      document.querySelectorAll('#gallery-thumbs .gallery-thumb').forEach(function (t) { t.classList.remove('active'); });
+      thumb.classList.add('active');
+    });
+  });
+
+  // ---- Lightbox: bấm vào ảnh để phóng to, có mũi tên chuyển ảnh bên cạnh ----
+  var lightboxImages = [];
+  var lightboxIndex = 0;
+
+  function collectGroupImages(group) {
+    // Bỏ qua ảnh preview chính (#gallery-main-image) vì nó luôn trùng với 1 thumbnail
+    // tương ứng — nếu không sẽ bị đếm 2 lần cho cùng 1 ảnh.
+    var items = Array.prototype.slice.call(document.querySelectorAll('[data-group="' + group + '"]'))
+      .filter(function (el) { return el.id !== 'gallery-main-image'; });
+    items.sort(function (a, b) { return parseInt(a.getAttribute('data-index'), 10) - parseInt(b.getAttribute('data-index'), 10); });
+    return items.map(function (el) {
+      return el.tagName === 'IMG' ? el.getAttribute('src') : el.getAttribute('data-src');
+    });
+  }
+
+  function showLightboxImage() {
+    var img = document.getElementById('lightbox-img');
+    var counter = document.getElementById('lightbox-counter');
+    var prevBtn = document.getElementById('lightbox-prev');
+    var nextBtn = document.getElementById('lightbox-next');
+    if (!img || !lightboxImages.length) return;
+    img.src = lightboxImages[lightboxIndex];
+    if (counter) counter.textContent = (lightboxIndex + 1) + ' / ' + lightboxImages.length;
+    var multi = lightboxImages.length > 1;
+    if (prevBtn) prevBtn.style.display = multi ? '' : 'none';
+    if (nextBtn) nextBtn.style.display = multi ? '' : 'none';
+  }
+
+  function openLightbox(group, index) {
+    lightboxImages = collectGroupImages(group);
+    if (!lightboxImages.length) return;
+    lightboxIndex = Math.max(0, Math.min(index, lightboxImages.length - 1));
+    showLightboxImage();
+    var overlay = document.getElementById('lightbox-overlay');
+    if (overlay) overlay.classList.add('active');
+  }
+
+  function closeLightbox() {
+    var overlay = document.getElementById('lightbox-overlay');
+    if (overlay) overlay.classList.remove('active');
+  }
+
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-group]');
+    if (!el) return;
+    if (el.classList.contains('gallery-thumb') && el.getAttribute('data-type') !== 'image') return;
+    openLightbox(el.getAttribute('data-group'), parseInt(el.getAttribute('data-index'), 10) || 0);
+  });
+
+  var lightboxOverlayEl = document.getElementById('lightbox-overlay');
+  if (lightboxOverlayEl) {
+    lightboxOverlayEl.addEventListener('click', function (e) {
+      if (e.target === lightboxOverlayEl) closeLightbox();
+    });
+  }
+  var lightboxCloseEl = document.getElementById('lightbox-close');
+  if (lightboxCloseEl) lightboxCloseEl.addEventListener('click', closeLightbox);
+
+  var lightboxPrevEl = document.getElementById('lightbox-prev');
+  if (lightboxPrevEl) lightboxPrevEl.addEventListener('click', function (e) {
+    e.stopPropagation();
+    lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+    showLightboxImage();
+  });
+  var lightboxNextEl = document.getElementById('lightbox-next');
+  if (lightboxNextEl) lightboxNextEl.addEventListener('click', function (e) {
+    e.stopPropagation();
+    lightboxIndex = (lightboxIndex + 1) % lightboxImages.length;
+    showLightboxImage();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    var overlay = document.getElementById('lightbox-overlay');
+    if (!overlay || !overlay.classList.contains('active')) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft' && lightboxPrevEl) lightboxPrevEl.click();
+    if (e.key === 'ArrowRight' && lightboxNextEl) lightboxNextEl.click();
+  });
 </script>
 {% endblock %}

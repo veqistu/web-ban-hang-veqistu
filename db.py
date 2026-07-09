@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS product (
     color_hex TEXT DEFAULT '#ee4d2d',
     image_path TEXT,
     gallery_images TEXT,
+    video_path TEXT,
     active INTEGER DEFAULT 1,
     brand TEXT DEFAULT 'No brand',
     pattern TEXT,
@@ -90,6 +91,29 @@ CREATE TABLE IF NOT EXISTS order_item (
     unit_price INTEGER NOT NULL,
     quantity INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS review (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL REFERENCES product(id),
+    reviewer_name TEXT NOT NULL,
+    rating INTEGER DEFAULT 5,
+    comment TEXT,
+    images TEXT,
+    video_path TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS shop_page_block (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    block_type TEXT NOT NULL,
+    title TEXT,
+    subtitle TEXT,
+    image_path TEXT,
+    link_url TEXT,
+    display_order INTEGER DEFAULT 0,
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+);
 """
 
 
@@ -120,6 +144,7 @@ def _migrate(conn):
         ("ship_nhanh_enabled", "INTEGER DEFAULT 1"),
         ("ship_nhanh_fee", "INTEGER DEFAULT 16500"),
         ("is_preorder", "INTEGER DEFAULT 0"),
+        ("video_path", "TEXT"),
     ]
     changed = False
     for col_name, col_def in new_columns:
@@ -139,6 +164,31 @@ def _migrate(conn):
             sku TEXT,
             gtin TEXT,
             UNIQUE(product_id, color, size)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS review (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL REFERENCES product(id),
+            reviewer_name TEXT NOT NULL,
+            rating INTEGER DEFAULT 5,
+            comment TEXT,
+            images TEXT,
+            video_path TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS shop_page_block (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            block_type TEXT NOT NULL,
+            title TEXT,
+            subtitle TEXT,
+            image_path TEXT,
+            link_url TEXT,
+            display_order INTEGER DEFAULT 0,
+            active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now'))
         )
     """)
     conn.commit()

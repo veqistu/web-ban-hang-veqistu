@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Trang chủ Shop | {{ shop_name }}{% endblock %}
+{% block content %}
+<div class="shop-home">
+
+  <div class="shop-stats-bar">
+    <div class="shop-avatar">{{ shop_name[:2] }}</div>
+    <div class="shop-stats-info">
+      <h1>{{ shop_name }}</h1>
+      <div class="shop-stats-row">
+        <span>⭐ {{ shop_rating }} Đánh giá</span>
+        <span>·</span>
+        <span>{{ total_products }} Sản phẩm</span>
+        <span>·</span>
+        <span>Đã bán {{ total_sold }}</span>
+      </div>
+    </div>
+    <div class="shop-stats-actions">
+      <a class="btn btn-outline" href="#">+ Theo Dõi</a>
+      <a class="btn btn-primary" href="{{ url_for('index') }}">Chat Ngay</a>
+    </div>
+  </div>
+
+  <nav class="shop-tabs">
+    <a class="shop-tab active" href="{{ url_for('shop_home') }}">Trang Chủ</a>
+    <a class="shop-tab" href="{{ url_for('index') }}">Tất Cả Sản Phẩm</a>
+    {% for c in categories %}
+    <a class="shop-tab" href="{{ url_for('index', category=c['id']) }}">{{ c['name'] }}</a>
+    {% endfor %}
+  </nav>
+
+  {% for block in blocks %}
+    {% if block['block_type'] == 'text' %}
+    <div class="shop-block shop-block-text">
+      {% if block['title'] %}<h2>{{ block['title'] }}</h2>{% endif %}
+      {% if block['subtitle'] %}<p>{{ block['subtitle'] }}</p>{% endif %}
+    </div>
+
+    {% elif block['block_type'] == 'banner_multi' %}
+    <div class="shop-block shop-block-banner-multi">
+      <div class="banner-multi-grid">
+        {% if block['image_path'] %}
+        {% for img in block['image_path'].split(',') %}
+        <a class="banner-multi-item" href="{{ block['link_url'] or '#' }}">
+          <img src="{{ url_for('static', filename=img) }}" alt="{{ block['title'] }}">
+        </a>
+        {% endfor %}
+        {% endif %}
+      </div>
+      {% if block['title'] %}
+      <div class="banner-overlay-text">
+        <h3>{{ block['title'] }}</h3>
+        {% if block['subtitle'] %}<p>{{ block['subtitle'] }}</p>{% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    {% else %}
+    <a class="shop-block shop-block-banner-single" href="{{ block['link_url'] or '#' }}">
+      {% if block['image_path'] %}
+      <img src="{{ url_for('static', filename=block['image_path'].split(',')[0]) }}" alt="{{ block['title'] }}">
+      {% else %}
+      <div class="banner-placeholder">Ảnh minh hoạ — {{ block['title'] or 'Banner' }}</div>
+      {% endif %}
+      {% if block['title'] %}
+      <div class="banner-overlay-text">
+        <h3>{{ block['title'] }}</h3>
+        {% if block['subtitle'] %}<p>{{ block['subtitle'] }}</p>{% endif %}
+      </div>
+      {% endif %}
+    </a>
+    {% endif %}
+  {% else %}
+  <div class="shop-block shop-block-banner-single">
+    <div class="banner-placeholder">Shop chưa có banner trang trí — vào trang quản trị &gt; Trang trí Shop để thêm.</div>
+  </div>
+  {% endfor %}
+
+  <div class="shop-block shop-featured-products">
+    <h2>GỢI Ý CHO BẠN</h2>
+    <div class="product-grid">
+      {% for p in featured_products %}
+      <a class="product-card" href="{{ url_for('product_detail', product_id=p['id']) }}">
+        <div class="product-thumb" style="background:{{ p['color_hex'] }}">
+          {% if p['image_path'] %}
+          <img src="{{ url_for('static', filename=p['image_path']) }}" alt="{{ p['name'] }}">
+          {% else %}
+          <span>{{ p['name'][:2] }}</span>
+          {% endif %}
+          {% if p['original_price'] %}
+          <div class="discount-badge">-{{ ((1 - p['price']/p['original_price']) * 100) | round | int }}%</div>
+          {% endif %}
+        </div>
+        <div class="product-info">
+          <div class="product-name">{{ p['name'] }}</div>
+          <div class="product-price">
+            <span class="price-now">{{ "{:,.0f}".format(p['price']) }}đ</span>
+          </div>
+          <div class="product-meta">
+            <span class="rating">⭐ {{ p['rating'] }}</span>
+            <span class="sold">Đã bán {{ p['sold_count'] }}</span>
+          </div>
+        </div>
+      </a>
+      {% else %}
+      <p>Chưa có sản phẩm nào.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

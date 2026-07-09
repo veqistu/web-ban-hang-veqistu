@@ -26,21 +26,36 @@ from seed_data import CATEGORIES, PRODUCTS, COMMON_SPECS, DEFAULT_COLORS, DEFAUL
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "doi-chuoi-nay-truoc-khi-deploy-that")
-app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024  # tối đa 15MB mỗi lần lưu sản phẩm (ảnh)
+app.config["MAX_CONTENT_LENGTH"] = 60 * 1024 * 1024  # tối đa 60MB mỗi lần lưu (ảnh + video đánh giá)
 
 # ---------- Cấu hình upload ảnh sản phẩm ----------
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 ALLOWED_IMAGE_EXT = {"png", "jpg", "jpeg", "webp", "gif"}
+ALLOWED_VIDEO_EXT = {"mp4", "webm", "mov", "mkv"}
 
 
 def _allowed_image(filename):
     return bool(filename) and "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_IMAGE_EXT
 
 
+def _allowed_video(filename):
+    return bool(filename) and "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_VIDEO_EXT
+
+
 def _save_uploaded_file(file_storage):
     """Lưu 1 file ảnh upload, trả về đường dẫn tương đối trong static/ (vd 'uploads/xxxx.jpg') hoặc None."""
     if not file_storage or not file_storage.filename or not _allowed_image(file_storage.filename):
+        return None
+    ext = file_storage.filename.rsplit(".", 1)[1].lower()
+    fname = f"{uuid.uuid4().hex}.{ext}"
+    file_storage.save(os.path.join(UPLOAD_DIR, fname))
+    return f"uploads/{fname}"
+
+
+def _save_uploaded_video(file_storage):
+    """Lưu 1 file video upload (đánh giá sản phẩm), trả về đường dẫn tương đối trong static/ hoặc None."""
+    if not file_storage or not file_storage.filename or not _allowed_video(file_storage.filename):
         return None
     ext = file_storage.filename.rsplit(".", 1)[1].lower()
     fname = f"{uuid.uuid4().hex}.{ext}"
@@ -112,6 +127,24 @@ def find_variant(product_id, color, size):
     )
 
 
+def get_reviews(product_id):
+    return db.query("SELECT * FROM review WHERE product_id=? ORDER BY id DESC", (product_id,))
+
+
+def review_stats(reviews):
+    count = len(reviews)
+    avg = round(sum(r["rating"] for r in reviews) / count, 1) if count else 0
+    return count, avg
+
+
+def get_shop_blocks(active_only=True):
+    sql = "SELECT * FROM shop_page_block"
+    if active_only:
+        sql += " WHERE active=1"
+    sql += " ORDER BY display_order ASC, id ASC"
+    return db.query(sql)
+
+
 def get_cart():
     return session.setdefault("cart", [])  # list of {product_id, name, price, variant, qty}
 
@@ -177,8 +210,11 @@ def product_detail(product_id):
     )
     variants = get_variants(product_id)
     variants_json = json.dumps([dict(v) for v in variants])
+    reviews = get_reviews(product_id)
+    review_count, review_avg = review_stats(reviews)
     return render_template("product_detail.html", p=product, related=related,
-                            variants=variants, variants_json=variants_json)
+                            variants=variants, variants_json=variants_json,
+                            reviews=reviews, review_count=review_count, review_avg=review_avg)
 
 
 @app.route("/cart/add", methods=["POST"])
@@ -360,6 +396,16 @@ def _save_product(product_id, form, files, categories):
     else:
         gallery_images = ""
 
+    # Video sản phẩm: nếu có upload video mới thì thay video cũ, không thì giữ nguyên
+    new_video = _save_uploaded_video(files.get("video"))
+    if new_video:
+        video_path = new_video
+    elif product_id:
+        existing = db.query("SELECT video_path FROM product WHERE id=?", (product_id,), one=True)
+        video_path = existing["video_path"] if existing else None
+    else:
+        video_path = None
+
     # ----- Bảng phân loại hàng (Màu sắc x Size) -----
     try:
         raw_variants = json.loads(form.get("variants_json", "[]") or "[]")
@@ -396,7 +442,7 @@ def _save_product(product_id, form, files, categories):
         form.get("material", ""), form.get("style", ""), form.get("origin", "Việt Nam"),
         form.get("collar", ""), form.get("colors", DEFAULT_COLORS), form.get("sizes", DEFAULT_SIZES),
         base_stock, form.get("description", ""), form.get("color_hex", "#ee4d2d"),
-        image_path, gallery_images, 1 if form.get("active") else 0,
+        image_path, gallery_images, video_path, 1 if form.get("active") else 0,
         form.get("brand", "No brand"), form.get("pattern", ""), form.get("season", ""),
         form.get("sleeve_length", ""), form.get("garment_length", ""), form.get("fit", ""),
         int(form.get("weight_grams") or 100),
@@ -410,7 +456,7 @@ def _save_product(product_id, form, files, categories):
         db.execute(
             """UPDATE product SET name=?, category_id=?, price=?, original_price=?, material=?,
                style=?, origin=?, collar=?, colors=?, sizes=?, stock=?, description=?, color_hex=?,
-               image_path=?, gallery_images=?, active=?,
+               image_path=?, gallery_images=?, video_path=?, active=?,
                brand=?, pattern=?, season=?, sleeve_length=?, garment_length=?, fit=?,
                weight_grams=?, package_length_cm=?, package_width_cm=?, package_height_cm=?,
                ship_hoa_toc_enabled=?, ship_hoa_toc_fee=?, ship_nhanh_enabled=?, ship_nhanh_fee=?,
@@ -422,12 +468,12 @@ def _save_product(product_id, form, files, categories):
     else:
         new_product_id = db.execute(
             """INSERT INTO product (name, category_id, price, original_price, material, style, origin,
-               collar, colors, sizes, stock, description, color_hex, image_path, gallery_images, active,
+               collar, colors, sizes, stock, description, color_hex, image_path, gallery_images, video_path, active,
                brand, pattern, season, sleeve_length, garment_length, fit,
                weight_grams, package_length_cm, package_width_cm, package_height_cm,
                ship_hoa_toc_enabled, ship_hoa_toc_fee, ship_nhanh_enabled, ship_nhanh_fee, is_preorder,
                rating, sold_count)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,5.0,0)""",
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,5.0,0)""",
             fields,
         )
 
@@ -445,8 +491,162 @@ def _save_product(product_id, form, files, categories):
 @app.route("/admin/san-pham/<int:product_id>/xoa")
 @admin_required
 def admin_product_delete(product_id):
-    db.execute("UPDATE product SET active=0 WHERE id=?", (product_id,))
+    """Ẩn/bỏ ẩn sản phẩm (không xoá dữ liệu) — bấm lại để đảo trạng thái."""
+    product = db.query("SELECT * FROM product WHERE id=?", (product_id,), one=True)
+    if product:
+        db.execute("UPDATE product SET active=? WHERE id=?", (0 if product["active"] else 1, product_id))
     return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/san-pham/<int:product_id>/xoa-han")
+@admin_required
+def admin_product_delete_permanent(product_id):
+    """Xoá vĩnh viễn sản phẩm khỏi hệ thống (khác với Ẩn — không thể khôi phục)."""
+    product = db.query("SELECT * FROM product WHERE id=?", (product_id,), one=True)
+    if not product:
+        return redirect(url_for("admin_dashboard"))
+
+    has_orders = db.query(
+        "SELECT COUNT(*) AS c FROM order_item WHERE product_id=?", (product_id,), one=True
+    )["c"]
+    if has_orders:
+        flash(f"Không thể xoá vĩnh viễn \"{product['name']}\" vì sản phẩm đã có trong đơn hàng — hãy dùng Ẩn thay vì Xoá.")
+        return redirect(url_for("admin_dashboard"))
+
+    db.execute("DELETE FROM review WHERE product_id=?", (product_id,))
+    db.execute("DELETE FROM product_variant WHERE product_id=?", (product_id,))
+    db.execute("DELETE FROM product WHERE id=?", (product_id,))
+    flash(f"Đã xoá vĩnh viễn sản phẩm \"{product['name']}\".")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/san-pham/<int:product_id>/danh-gia")
+@admin_required
+def admin_product_reviews(product_id):
+    product = db.query("SELECT * FROM product WHERE id=?", (product_id,), one=True)
+    if not product:
+        return "Không tìm thấy sản phẩm", 404
+    reviews = get_reviews(product_id)
+    return render_template("admin/product_reviews.html", product=product, reviews=reviews)
+
+
+@app.route("/admin/san-pham/<int:product_id>/danh-gia/them", methods=["POST"])
+@admin_required
+def admin_review_add(product_id):
+    product = db.query("SELECT * FROM product WHERE id=?", (product_id,), one=True)
+    if not product:
+        return "Không tìm thấy sản phẩm", 404
+
+    reviewer_name = request.form.get("reviewer_name", "").strip() or "Khách hàng"
+    try:
+        rating = max(1, min(5, int(request.form.get("rating", 5))))
+    except (ValueError, TypeError):
+        rating = 5
+    comment = request.form.get("comment", "").strip()
+
+    image_files = [f for f in request.files.getlist("images") if f and f.filename]
+    saved_images = [pth for pth in (_save_uploaded_file(f) for f in image_files) if pth]
+    images = ",".join(saved_images)
+
+    video_path = _save_uploaded_video(request.files.get("video"))
+
+    if reviewer_name and (comment or images or video_path):
+        db.execute(
+            """INSERT INTO review (product_id, reviewer_name, rating, comment, images, video_path)
+               VALUES (?,?,?,?,?,?)""",
+            (product_id, reviewer_name, rating, comment, images, video_path),
+        )
+    return redirect(url_for("admin_product_reviews", product_id=product_id))
+
+
+@app.route("/admin/danh-gia/<int:review_id>/xoa")
+@admin_required
+def admin_review_delete(review_id):
+    review = db.query("SELECT * FROM review WHERE id=?", (review_id,), one=True)
+    if review:
+        db.execute("DELETE FROM review WHERE id=?", (review_id,))
+        return redirect(url_for("admin_product_reviews", product_id=review["product_id"]))
+    return redirect(url_for("admin_dashboard"))
+
+
+# ---------- Trang chủ Shop + Trang trí Shop ----------
+@app.route("/shop")
+def shop_home():
+    blocks = get_shop_blocks(active_only=True)
+    featured_products = db.query(
+        "SELECT * FROM product WHERE active=1 ORDER BY sold_count DESC LIMIT 10"
+    )
+    total_products = db.query("SELECT COUNT(*) AS c FROM product WHERE active=1", one=True)["c"]
+    avg_rating_row = db.query("SELECT AVG(rating) AS a FROM product WHERE active=1", one=True)
+    shop_rating = round(avg_rating_row["a"], 1) if avg_rating_row and avg_rating_row["a"] else 5.0
+    total_sold = db.query("SELECT SUM(sold_count) AS s FROM product", one=True)["s"] or 0
+    categories = db.query("SELECT * FROM category ORDER BY id")
+    return render_template(
+        "shop_home.html", blocks=blocks, featured_products=featured_products,
+        total_products=total_products, shop_rating=shop_rating, total_sold=total_sold,
+        categories=categories,
+    )
+
+
+@app.route("/admin/trang-tri-shop")
+@admin_required
+def admin_shop_decoration():
+    blocks = get_shop_blocks(active_only=False)
+    return render_template("admin/shop_decoration.html", blocks=blocks)
+
+
+@app.route("/admin/trang-tri-shop/them", methods=["POST"])
+@admin_required
+def admin_shop_block_add():
+    block_type = request.form.get("block_type", "banner_single")
+    title = request.form.get("title", "").strip()
+    subtitle = request.form.get("subtitle", "").strip()
+    link_url = request.form.get("link_url", "").strip()
+
+    image_files = [f for f in request.files.getlist("images") if f and f.filename]
+    saved_images = [pth for pth in (_save_uploaded_file(f) for f in image_files) if pth]
+    image_path = ",".join(saved_images)
+
+    max_order_row = db.query("SELECT MAX(display_order) AS m FROM shop_page_block", one=True)
+    next_order = (max_order_row["m"] + 1) if max_order_row and max_order_row["m"] is not None else 0
+
+    db.execute(
+        """INSERT INTO shop_page_block (block_type, title, subtitle, image_path, link_url, display_order, active)
+           VALUES (?,?,?,?,?,?,1)""",
+        (block_type, title, subtitle, image_path, link_url, next_order),
+    )
+    return redirect(url_for("admin_shop_decoration"))
+
+
+@app.route("/admin/trang-tri-shop/<int:block_id>/xoa")
+@admin_required
+def admin_shop_block_delete(block_id):
+    db.execute("DELETE FROM shop_page_block WHERE id=?", (block_id,))
+    return redirect(url_for("admin_shop_decoration"))
+
+
+@app.route("/admin/trang-tri-shop/<int:block_id>/an-hien")
+@admin_required
+def admin_shop_block_toggle(block_id):
+    block = db.query("SELECT * FROM shop_page_block WHERE id=?", (block_id,), one=True)
+    if block:
+        db.execute("UPDATE shop_page_block SET active=? WHERE id=?", (0 if block["active"] else 1, block_id))
+    return redirect(url_for("admin_shop_decoration"))
+
+
+@app.route("/admin/trang-tri-shop/<int:block_id>/di-chuyen/<direction>")
+@admin_required
+def admin_shop_block_move(block_id, direction):
+    blocks = db.query("SELECT * FROM shop_page_block ORDER BY display_order ASC, id ASC")
+    ids = [b["id"] for b in blocks]
+    if block_id in ids:
+        idx = ids.index(block_id)
+        swap_idx = idx - 1 if direction == "up" else idx + 1
+        if 0 <= swap_idx < len(ids):
+            a, b = blocks[idx], blocks[swap_idx]
+            db.execute("UPDATE shop_page_block SET display_order=? WHERE id=?", (b["display_order"], a["id"]))
+            db.execute("UPDATE shop_page_block SET display_order=? WHERE id=?", (a["display_order"], b["id"]))
+    return redirect(url_for("admin_shop_decoration"))
 
 
 @app.route("/admin/don-hang")
